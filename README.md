@@ -1,5 +1,7 @@
 # SGC Arabia 법인세 계산 웹앱 (Corporate Income Tax Calculation)
 
+**접속 주소:** https://pjk0218.github.io/sgc-corporate-income-tax/  (코드: https://github.com/pjk0218/sgc-corporate-income-tax)
+
 연말 결산 때 1년에 한 번 쓰는 웹앱. 엑셀 자료를 넣으면 Corporate Income Tax와 Deferred Tax를 계산 과정과 함께 보여준다. 화면은 영어(팀 공유용).
 서버 없이 브라우저에서만 동작하며, 자료는 팀 공유 폴더(또는 브라우저) 밖으로 나가지 않는다. 급여 웹앱(sgc-wps-payroll)과 같은 방식.
 
