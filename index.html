@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SGC Arabia – Corporate Income Tax Calculation</title>
+<style>
+:root{
+  --ink:#1c2733; --muted:#5d6b7a; --line:#d9e0e7; --bg:#f4f6f8; --card:#fff;
+  --brand:#0f4c5c; --brand-soft:#e3f0f2; --ok:#1b7f4b; --ok-soft:#e4f4ea;
+  --warn:#9a6200; --warn-soft:#fff4d9; --err:#b3261e; --err-soft:#fde8e6; --info:#1f5fa8; --info-soft:#e6effa;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:var(--brand);color:#fff;padding:14px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:18px;font-weight:600}
+header .sub{font-size:12px;opacity:.85}
+.hbtns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 12px}
+button:hover{background:#eef2f5}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible,summary:focus-visible{outline:3px solid #f2b705;outline-offset:1px}
+header button{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+header button:hover{background:rgba(255,255,255,.15)}
+header select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.5);background:#fff;color:var(--ink)}
+header .hbtns{align-items:center} header .sub b{color:#fff;opacity:1}
+input:disabled{background:#eef1f4;color:var(--muted)} code{background:#eef1f4;padding:1px 5px;border-radius:4px}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.primary:hover{background:#0c3d4a}
+button.danger{color:var(--err);border-color:#e5b5b1}
+button.link{border:none;background:none;color:var(--info);padding:0;text-decoration:underline}
+nav{background:#fff;border-bottom:1px solid var(--line);padding:0 24px;display:flex;gap:4px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+nav button{border:none;border-bottom:3px solid transparent;border-radius:0;padding:12px 14px;background:none;color:var(--muted);font-weight:600}
+nav button[aria-selected=true]{color:var(--brand);border-bottom-color:var(--brand)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;font-size:12px;text-align:center;margin-left:4px;color:#fff;background:var(--muted)}
+.badge.err{background:var(--err)} .badge.warn{background:var(--warn)} .badge.ok{background:var(--ok)}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:16px} .card h3{margin:16px 0 6px;font-size:14px}
+.hint{color:var(--muted);font-size:13px}
+.statusbar{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.progress{flex:1;min-width:160px;height:10px;background:#e3e8ed;border-radius:6px;overflow:hidden}
+.progress>div{height:100%;background:var(--ok);transition:width .3s}
+.drop{border:2px dashed #9fb3c1;border-radius:10px;padding:22px;text-align:center;background:#fafcfd;margin-top:12px}
+.drop.over{background:var(--brand-soft);border-color:var(--brand)}
+.check{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.check:first-of-type{border-top:none}
+.tick{width:26px;height:26px;border-radius:50%;border:2px solid #b7c2cc;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:15px}
+.tick.done{background:var(--ok);border-color:var(--ok)} .tick.na{background:var(--muted);border-color:var(--muted)}
+.check .t{font-weight:600} .tag{font-size:11px;padding:1px 7px;border-radius:9px;margin-left:6px;font-weight:600}
+.tag.req{background:var(--err-soft);color:var(--err)} .tag.opt{background:var(--info-soft);color:var(--info)}
+.tag.use{background:var(--brand-soft);color:var(--brand)}
+.keyin{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+input[type=text]{font:inherit;padding:6px 8px;border:1px solid #aab6c1;border-radius:6px;width:190px;text-align:right}
+input.bad{border-color:var(--err);background:var(--err-soft)}
+input.wide{width:260px;text-align:left}
+.fielderr{color:var(--err);font-size:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:5px 8px;border-bottom:1px solid #e8edf1;text-align:left;vertical-align:top}
+th{background:#f0f3f6;font-weight:600;position:sticky;top:44px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:700;border-top:2px solid var(--ink);background:#f7f9fa}
+tr.sub td{font-weight:600;background:#fafbfc}
+tr.result td{font-weight:700;background:var(--brand-soft);font-size:14px}
+tr.sect td{background:var(--brand);color:#fff;font-weight:600}
+tr.used td{background:#fffbea}
+tr.manrow td{color:var(--muted);font-size:12px;font-style:italic;padding-top:2px;padding-bottom:2px}
+select.in{font:inherit;padding:6px 8px;border:1px solid #aab6c1;border-radius:6px;max-width:100%}
+.ref{color:var(--muted);font-size:12px;white-space:nowrap}
+.formula{color:var(--muted);font-size:12px}
+.neg{color:var(--err)}
+.scroll{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:8px}
+.scroll th{top:0}
+.notice{display:grid;grid-template-columns:86px 1fr;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:8px;border:1px solid}
+.notice.err{background:var(--err-soft);border-color:#eeb8b3} .notice.warn{background:var(--warn-soft);border-color:#ecd28f}
+.notice.info{background:var(--info-soft);border-color:#b9d0ec} .notice.ok{background:var(--ok-soft);border-color:#b2dcc2}
+.notice b.lv{font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.notice.err .lv{color:var(--err)} .notice.warn .lv{color:var(--warn)} .notice.info .lv{color:var(--info)} .notice.ok .lv{color:var(--ok)}
+.notice .fix{font-size:13px;color:var(--ink);margin-top:2px}
+.blocked{padding:26px;text-align:center}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:12px 0}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fafcfd}
+.kpi .l{font-size:12px;color:var(--muted)} .kpi .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+details{margin:2px 0} summary{cursor:pointer;color:var(--info);font-size:12px}
+details table{margin:6px 0 4px;background:#fcfdfe}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button[aria-pressed=true]{background:var(--brand);color:#fff;border-color:var(--brand)}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1c2733;color:#fff;padding:10px 16px;border-radius:8px;display:none;gap:14px;align-items:center;z-index:20;max-width:90vw}
+#toast button{background:none;color:#ffd866;border:none;text-decoration:underline;padding:0}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30}
+.modal>div{background:#fff;border-radius:10px;padding:20px;max-width:440px;width:90%}
+.modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.maptable input{width:100%;text-align:left}
+@media print{
+  header .hbtns,nav,#toast,.noprint,summary{display:none!important}
+  body{background:#fff} main{max-width:none;padding:0}
+  section[role=tabpanel]{display:none!important}
+  section.printme{display:block!important}
+  .card{border:none;padding:0;break-inside:avoid-page} th{position:static} details{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>SGC Arabia – Corporate Income Tax Calculation</h1>
+    <div class="sub" id="hsub">Year-end tax provision: Corporate Income Tax &amp; Deferred Tax (amounts in SAR)</div>
+  </div>
+  <div class="hbtns">
+    <label for="yearSel" class="sub">Fiscal year</label>
+    <select id="yearSel" title="Open a saved fiscal year or start a new one"></select>
+    <span class="sub" id="storeInfo"></span>
+    <button id="btnFolder" title="Pick the team's shared network folder so everyone sees the same data"></button>
+    <button id="btnPrint" title="Print the tax computation, deferred tax and notices (or save as PDF)">Print / PDF</button>
+  </div>
+</header>
+<nav role="tablist" aria-label="Sections" id="nav"></nav>
+<main id="main"></main>
+<div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div>
+  <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px"></h2><div id="modalBody"></div>
+  <div class="row"><button id="modalCancel">Cancel</button><button id="modalOk" class="danger"></button></div>
+</div></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   SGC Arabia – Corporate Income Tax Calculation
+   Static app (no server). Data is written only to the team's shared folder or this browser.
+   Sections: 1) xlsx reader  2) sheet parsers  3) calculations  4) notices  5) storage  6) state  7) UI
+   ===================================================================== */
+
+/* ---------- 1) Minimal .xlsx reader (zip + XML, no external library) ---------- */
+async function readXlsx(buf){
+  const u8=new Uint8Array(buf), dv=new DataView(buf);
+  let e=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--){ if(dv.getUint32(i,true)===0x06054b50){e=i;break;} }
+  if(e<0) throw new Error('This is not a valid .xlsx file.');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true);
+  const td=new TextDecoder(), files={};
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) throw new Error('The .xlsx file is damaged.');
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true),
+      nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), lo=dv.getUint32(p+42,true);
+    const name=td.decode(u8.subarray(p+46,p+46+nl));
+    files[name]={method,csize,lo}; p+=46+nl+el+cl;
+  }
+  async function text(name){
+    const f=files[name]; if(!f) return null;
+    const lnl=dv.getUint16(f.lo+26,true), lel=dv.getUint16(f.lo+28,true);
+    const data=u8.subarray(f.lo+30+lnl+lel, f.lo+30+lnl+lel+f.csize);
+    if(f.method===0) return td.decode(data);
+    if(f.method!==8) throw new Error('Unsupported compression in the .xlsx file.');
+    const ab=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+    return td.decode(ab);
+  }
+  const xml=s=>new DOMParser().parseFromString(s,'application/xml');
+  const wbTxt=await text('xl/workbook.xml');
+  if(!wbTxt) throw new Error('This file is not an Excel workbook (.xlsx). Old .xls files must be re-saved as .xlsx first.');
+  const wb=xml(wbTxt), rels=xml(await text('xl/_rels/workbook.xml.rels'));
+  const relMap={}; for(const r of rels.getElementsByTagName('Relationship')) relMap[r.getAttribute('Id')]=r.getAttribute('Target');
+  const sst=[]; const sstTxt=await text('xl/sharedStrings.xml');
+  if(sstTxt){ for(const si of xml(sstTxt).getElementsByTagName('si')){
+    let s=''; for(const t of si.getElementsByTagName('t')){ if(t.parentNode.localName!=='rPh') s+=t.textContent; } sst.push(s); } }
+  const sheets=[];
+  for(const s of wb.getElementsByTagName('sheet')){
+    const rid=s.getAttribute('r:id')||s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    let target=relMap[rid]; if(!target) continue;
+    target=target.startsWith('/')?target.slice(1):'xl/'+target;
+    const stxt=await text(target); if(!stxt) continue;
+    const rows=[];
+    for(const c of xml(stxt).getElementsByTagName('c')){
+      const ref=c.getAttribute('r'); const m=/^([A-Z]+)(\d+)$/.exec(ref||''); if(!m) continue;
+      let col=0; for(const ch of m[1]) col=col*26+ch.charCodeAt(0)-64; col--; const row=+m[2]-1;
+      const t=c.getAttribute('t'); let v=null;
+      const vEl=[...c.children].find(x=>x.localName==='v');
+      if(t==='inlineStr'){ v=[...c.getElementsByTagName('t')].map(x=>x.textContent).join(''); }
+      else if(vEl){ const raw=vEl.textContent;
+        if(t==='s') v=sst[+raw]; else if(t==='str') v=raw; else if(t==='b') v=raw==='1'; else if(t==='e') v=null; else { const num=Number(raw); v=isNaN(num)?raw:num; } }
+      if(v===null||v==='') continue;
+      (rows[row]||(rows[row]=[]))[col]=v;
+    }
+    sheets.push({name:s.getAttribute('name'),rows});
+  }
+  return sheets;
+}
+
+/* ---------- 2) Sheet detection and parsers ---------- */
+const S=v=>v==null?'':String(v).replace(/\s+/g,' ').trim();
+const N=v=>typeof v==='number'?v:(v==null||v===''?0:(isNaN(Number(String(v).replace(/,/g,'')))?0:Number(String(v).replace(/,/g,''))));
+function findCell(rows,re,fromRow=0){
+  for(let r=fromRow;r<rows.length;r++){ const row=rows[r]; if(!row) continue;
+    for(let c=0;c<row.length;c++){ if(typeof row[c]==='string'&&re.test(S(row[c]))) return {r,c}; } }
+  return null;
+}
+function detectKind(rows){
+  if(findCell(rows,/^Particulars$/i)&&findCell(rows,/^Dr \(YTD\)$/i)) return 'tb';
+  if(findCell(rows,/^Opening Balance$/i)&&findCell(rows,/^Ending Balance$/i)) return 'prov';
+  if(findCell(rows,/^Depreciation Rate$/i)&&findCell(rows,/^Land$/i)) return 'ppe';
+  if(findCell(rows,/^Principal Amount/i)) return 'guar';
+  return null;
+}
+function parseTB(rows){
+  const h=findCell(rows,/^Particulars$/i); const hr=rows[h.r];
+  const col=re=>{ for(let c=0;c<hr.length;c++) if(re.test(S(hr[c]))) return c; return -1; };
+  const C={name:h.c,code:col(/^Code$/i),opDr:col(/^Dr \(Op/i),opCr:col(/^Cr \(Op/i),dr:col(/^Debits/i),cr:col(/^Credits/i),ytdDr:col(/^Dr \(YTD/i),ytdCr:col(/^Cr \(YTD/i)};
+  const missing=Object.entries(C).filter(([k,v])=>v<0).map(([k])=>k);
+  if(missing.length) throw new Error('Trial balance: column(s) not found – '+missing.join(', ')+'. Expected headers: Particulars, Code, Dr (Op bal), Cr (Op bal), Debits for the period, Credits for the period, Dr (YTD), Cr (YTD).');
+  let company='',period='';
+  for(let r=0;r<h.r;r++){ for(const v of rows[r]||[]){ const s=S(v); if(!s) continue;
+    if(/date range/i.test(s)) period=s; else if(!/^trial balance$/i.test(s)&&!company) company=s; } }
+  const accts=[]; let grand=null, profit=null;
+  for(let r=h.r+1;r<rows.length;r++){ const row=rows[r]; if(!row) continue;
+    const rawName=row[C.name]; const name=S(rawName); if(!name) continue;
+    const o={name,indent:(typeof rawName==='string'&&/^\s/.test(rawName))?1:0,code:S(row[C.code]),opDr:N(row[C.opDr]),opCr:N(row[C.opCr]),dr:N(row[C.dr]),cr:N(row[C.cr]),ytdDr:N(row[C.ytdDr]),ytdCr:N(row[C.ytdCr])};
+    if(/^Grand Total$/i.test(name)){ grand=o; continue; }
+    if(/^Profit for the period$/i.test(name)||/^Loss for the period$/i.test(name)){ profit=o; profit.isLoss=/^Loss/i.test(name); continue; }
+    if(grand) continue;            // ignore anything below the Grand Total (working area)
+    if(!o.code) continue;
+    accts.push(o);
+  }
+  if(!accts.length) throw new Error('Trial balance: no account rows were found below the header row.');
+  const ym=/(\d{2})\/(\d{2})\/(\d{4})\s*to\s*(\d{2})\/(\d{2})\/(\d{4})/.exec(period);
+  return {company,period,year:ym?+ym[6]:null,accts,grand,profit};
+}
+function parseProv(rows){
+  const h=findCell(rows,/^Opening Balance$/i); const hr=rows[h.r];
+  const col=re=>{ for(let c=0;c<hr.length;c++) if(re.test(S(hr[c]))) return c; return -1; };
+  const C={name:col(/^Name$/i),open:h.c,prov:col(/^Provided/i),util:col(/^Utili[sz]ed/i),adj:col(/^Adjustments?/i),end:col(/^Ending Balance$/i)};
+  if(C.name<0) C.name=h.c-1;
+  const miss=Object.entries(C).filter(([k,v])=>v<0).map(([k])=>k);
+  if(miss.length) throw new Error('Provision Movement: column(s) not found – '+miss.join(', ')+'. Expected headers: Name, Opening Balance, Provided during the year, Utilized during the year, Adjustments/ Reversals, Ending Balance.');
+  const items=[];
+  for(let r=h.r+1;r<rows.length;r++){ const row=rows[r]; if(!row) continue; const name=S(row[C.name]); if(!name) continue;
+    if(/^Total$/i.test(name)) break;
+    items.push({name,open:N(row[C.open]),prov:N(row[C.prov]),util:N(row[C.util]),adj:N(row[C.adj]),end:N(row[C.end])}); }
+  if(!items.length) throw new Error('Provision Movement: no provision rows were found between the header and the "Total" row.');
+  return {items};
+}
+function parsePPE(rows){
+  const land=findCell(rows,/^Land$/i); const hr=rows[land.r];
+  let tot=-1; for(let c=land.c+1;c<hr.length;c++){ if(/^Totals?$/i.test(S(hr[c]))){tot=c;break;} }
+  if(tot<0) throw new Error('PPE – Depreciation: the "Totals" column was not found in the group header row.');
+  const cols=[]; for(let c=land.c;c<tot;c++) cols.push(c);
+  const groups=cols.map(c=>S(hr[c]));
+  const rowOf=re=>{ for(let r=land.r+1;r<rows.length;r++){ const row=rows[r]; if(!row) continue; for(let c=0;c<land.c;c++){ if(typeof row[c]==='string'&&re.test(S(row[c]))) return r; } } return -1; };
+  const vals=(re,label)=>{ const r=rowOf(re); if(r<0) throw new Error('PPE – Depreciation: row "'+label+'" was not found.'); return cols.map(c=>N((rows[r]||[])[c])); };
+  const out={groups,
+    open:vals(/^Ending Balance as per prior year/i,'Ending Balance as per prior year TR'),
+    addCur:vals(/^Current Year.s Additions/i,"Current Year's Additions"),
+    addPrior:vals(/^Prior Year.s Additions/i,"Prior Year's Additions"),
+    consCur:vals(/^Current Year.s Considerations/i,"Current Year's Considerations"),
+    consPrior:vals(/^Prior Year.s Considerations/i,"Prior Year's Considerations"),
+    rate:vals(/^Depreciation Rate$/i,'Depreciation Rate'),
+    rm:cols.map(()=>0), gl:null};
+  const glr=rowOf(/as per GL/i);
+  if(glr>=0){ const row=rows[glr]; let v=row[tot]; if(typeof v!=='number'){ for(let c=row.length-1;c>=land.c;c--) if(typeof row[c]==='number'){v=row[c];break;} } if(typeof v==='number') out.gl=v; }
+  const gn=findCell(rows,/^Group Name$/i);
+  if(gn){ const ex=findCell(rows,/^Expense$/i,gn.r);
+    if(ex){ for(let r=gn.r+1;r<rows.length;r++){ const row=rows[r]; if(!row) continue;
+      for(let c=0;c<land.c;c++){ const m=/^\(Group # ?(\d)\)/i.exec(S(row[c])); if(m){ const g=+m[1]; if(g>=1&&g<cols.length) out.rm[g]=N((rows[r-1]||[])[ex.c]); } } } } }
+  return out;
+}
+function parseGuar(rows){
+  const h=findCell(rows,/^Principal Amount/i); const hr=rows[h.r];
+  const col=re=>{ for(let c=0;c<hr.length;c++) if(re.test(S(hr[c]))) return c; return -1; };
+  const C={principal:h.c,start:col(/^Start date/i),end:col(/^End date/i),days:col(/^Days/i),rate:col(/^Guarantee Fee Rate/i),mv:col(/^Market Value/i)};
+  if(C.days<0||C.rate<0) throw new Error('Normal Guarantee: columns "Days (360)" and/or "Guarantee Fee Rate (%)" were not found.');
+  let marketRate=null;
+  if(C.mv>=0){ for(let r=h.r+1;r<Math.min(rows.length,h.r+3);r++){ const v=(rows[r]||[])[C.mv]; if(typeof v==='number'&&v>0&&v<1&&typeof (rows[r]||[])[C.principal]!=='number'){ marketRate=v; break; } } }
+  const sub=rows[h.r+1]||[]; const sc=re=>{ for(let c=0;c<sub.length;c++) if(re.test(S(sub[c]))) return c; return -1; };
+  let cp=sc(/^Project$/i), cb=sc(/^Bond$/i), cr=sc(/^Related Party/i);
+  if(cp<0) cp=0; if(cb<0) cb=1; if(cr<0) cr=2;
+  const items=[]; let proj='';
+  for(let r=h.r+1;r<rows.length;r++){ const row=rows[r]; if(!row) continue; const pv=row[C.principal];
+    if(typeof pv!=='number') continue;
+    if(S(row[cp])) proj=S(row[cp]);
+    items.push({project:proj,bond:S(row[cb]),party:S(row[cr]),principal:pv,start:row[C.start]??null,end:row[C.end]??null,days:N(row[C.days]),rate:N(row[C.rate])}); }
+  if(!items.length) throw new Error('Normal Guarantee: no guarantee rows with a principal amount were found.');
+  return {items,marketRate};
+}
+const PARSERS={tb:parseTB,prov:parseProv,ppe:parsePPE,guar:parseGuar};
+
+/* ---------- 3) Calculations ---------- */
+const DEFAULT_MAP={
+  revenue:{label:'Projects Construction Revenue',use:'Income – Cr (YTD)',codes:['002-002']},
+  otherIncome:{label:'Non-Operating Revenue',use:'Income – Cr (YTD)',codes:['002-0043']},
+  cost:{label:'Projects Cost Expenses',use:'Expense – Dr (YTD)',codes:['002-004']},
+  ga:{label:'General & Administrative Expenses',use:'Expense – Dr (YTD)',codes:['002-005']},
+  nonOpExp:{label:'Non-Operating Expenses',use:'Expense – Dr (YTD)',codes:['002-0046']},
+  interest:{label:'Interest Expenses',use:'Expense – Dr (YTD)',codes:['002-0049']},
+  entertainment:{label:'Entertainment (disallowed)',use:'Add-back – Dr (YTD)',codes:['01-32','02-028']},
+  taxDues:{label:'Tax & Dues (disallowed)',use:'Add-back – Dr (YTD)',codes:['01-28','02-027']},
+  prepaidTax:{label:'Prepaid Tax (advance tax paid)',use:'Credits for the period',codes:['001-0025']},
+  depreciation:{label:'Depreciation expense accounts',use:'Cross-check only – Dr (YTD)',codes:['01-23','02-017']},
+  bookedCIT:{label:'Corporate income tax expense (booked)',use:'Cross-check only – Dr (YTD)',codes:['002-0063']},
+  bookedDT:{label:'Deferred tax expense (booked)',use:'Cross-check only – Cr − Dr (YTD)',codes:['002-0065']}
+};
+const sum=a=>a.reduce((x,y)=>x+y,0);
+const MAN_TARGETS={A1:'CIT · A1 Guarantee fee above market value',A2:'CIT · A2 Entertainment expenses',A3:'CIT · A3 Tax and dues',A4:'CIT · A4 Provisions made during the year',A5:'CIT · A5 Provisions utilized during the year',A6:'CIT · A6 Depreciation difference',other:'CIT · Other tax adjustment (new line)',taxFA:'Deferred tax · Fixed assets as per the tax working',dtProv:'Deferred tax · Provisions (deferred tax asset base)'};
+function pick(tb,codes,field){
+  const rows=[],missing=[];
+  for(const code of codes){ const hit=tb.accts.filter(a=>a.code===code); if(!hit.length) missing.push(code); rows.push(...hit); }
+  return {amount:sum(rows.map(a=>typeof field==='function'?field(a):a[field])),rows,missing};
+}
+function calcPPE(p){
+  const g=p.groups.map((name,i)=>{
+    const halfAdd=(p.addCur[i]+p.addPrior[i])*0.5, halfCons=(p.consCur[i]+p.consPrior[i])*0.5;
+    const end=p.open[i]+halfAdd-halfCons, dep=end*p.rate[i], base=end-dep, allowed=base*0.04;
+    const rmDis=i===0?0:Math.max(0,p.rm[i]-allowed);
+    return {name,open:p.open[i],addCur:p.addCur[i],addPrior:p.addPrior[i],halfAdd,consCur:p.consCur[i],consPrior:p.consPrior[i],halfCons,end,rate:p.rate[i],dep,base,allowed,rm:p.rm[i],rmDis,cf:end-dep+rmDis};
+  });
+  const T=k=>sum(g.map(x=>x[k]));
+  const tot={open:T('open'),addCur:T('addCur'),addPrior:T('addPrior'),halfAdd:T('halfAdd'),consCur:T('consCur'),consPrior:T('consPrior'),halfCons:T('halfCons'),end:T('end'),dep:T('dep'),rmDis:T('rmDis'),cf:T('cf'),rm:T('rm'),allowed:T('allowed'),base:T('base')};
+  return {g,tot,gl:p.gl,depDiff:p.gl==null?null:p.gl-tot.dep};
+}
+function calcGuar(gu){
+  const mr=gu.marketRate;
+  const items=gu.items.map(x=>{ const fee=x.principal/360*x.days*x.rate; const mv=mr==null?null:x.principal/360*x.days*mr; return {...x,fee,mv,dis:mv==null?null:fee-mv}; });
+  const fee=sum(items.map(x=>x.fee));
+  return {items,marketRate:mr,fee,mv:mr==null?null:sum(items.map(x=>x.mv)),dis:mr==null?null:sum(items.map(x=>x.dis)),wht:fee*0.05};
+}
+function compute(st){
+  const R={ready:{},missing:[]}; const k=st.keyins, map=st.map;
+  const num=v=>v===''||v==null?null:v;
+  R.rate=num(k.taxRate); R.share=num(k.share);
+  if(st.ppe) R.ppe=calcPPE(st.ppe);
+  if(st.prov){ const it=st.prov.items; R.prov={items:it,open:sum(it.map(x=>x.open)),prov:sum(it.map(x=>x.prov)),util:sum(it.map(x=>x.util)),adj:sum(it.map(x=>x.adj)),end:sum(it.map(x=>x.end))}; }
+  if(st.guar) R.guar=calcGuar(st.guar);
+  if(st.tb){ const tb=st.tb; const P=(key,f)=>pick(tb,map[key].codes,f);
+    R.tb={revenue:P('revenue','ytdCr'),otherIncome:P('otherIncome','ytdCr'),cost:P('cost','ytdDr'),ga:P('ga','ytdDr'),nonOpExp:P('nonOpExp','ytdDr'),interest:P('interest','ytdDr'),
+      entertainment:P('entertainment','ytdDr'),taxDues:P('taxDues','ytdDr'),prepaidTax:P('prepaidTax','cr'),depreciation:P('depreciation','ytdDr'),bookedCIT:P('bookedCIT','ytdDr'),bookedDT:P('bookedDT',a=>a.ytdCr-a.ytdDr)};
+    R.tb.income=R.tb.revenue.amount+R.tb.otherIncome.amount;
+    R.tb.expense=R.tb.cost.amount+R.tb.ga.amount+R.tb.nonOpExp.amount+R.tb.interest.amount;
+    R.tb.netProfit=R.tb.income-R.tb.expense;
+  }
+  // Corporate income tax
+  const guarOK=st.guarNA||(R.guar&&R.guar.dis!=null);
+  if(!st.tb) R.missing.push('Trial Balance');
+  if(!st.prov) R.missing.push('Provision Movement');
+  if(!st.ppe) R.missing.push('PPE – Depreciation'); else if(R.ppe.depDiff==null) R.missing.push('PPE – Depreciation: "Depreciation + Amortization as per GL" amount');
+  if(!guarOK) R.missing.push(st.guar?'Normal Guarantee: market value rate (%)':'Normal Guarantee (or tick "Not applicable")');
+  if(R.rate==null) R.missing.push('Applicable tax rate');
+  R.citReady=R.missing.length===0;
+  if(R.citReady){
+    const adj=[
+      {ref:'A1',label:'Guarantee fee above market value (related party)',src:st.guarNA?'Marked "Not applicable" – fee rate equals market rate':'Normal Guarantee: Σ (Guarantee fee − Market value)',amt:st.guarNA?0:R.guar.dis,det:'guar'},
+      {ref:'A2',label:'Entertainment expenses',src:'Trial Balance Dr (YTD): '+map.entertainment.codes.join(', '),amt:R.tb.entertainment.amount,det:'entertainment'},
+      {ref:'A3',label:'Tax and dues',src:'Trial Balance Dr (YTD): '+map.taxDues.codes.join(', '),amt:R.tb.taxDues.amount,det:'taxDues'},
+      {ref:'A4',label:'Provisions made during the year',src:'Provision Movement: total "Provided during the year"',amt:R.prov.prov,det:'prov'},
+      {ref:'A5',label:'Provisions utilized during the year',src:'Provision Movement: − total "Utilized during the year"',amt:-R.prov.util,det:'prov'},
+      {ref:'A6',label:'Depreciation difference',src:'PPE – Depreciation: Depreciation per GL − Depreciation per ZATCA rates',amt:R.ppe.depDiff,det:'ppe'}];
+    const man=st.manual||[]; let oi=adj.length+1;
+    for(const a of adj){ a.base=a.amt; a.manual=man.filter(m=>m.target===a.ref); a.amt+=sum(a.manual.map(m=>m.amt)); }
+    for(const m of man.filter(m=>m.target==='other')) adj.push({ref:'A'+(oi++),label:'Other adjustment: '+m.desc,src:'Manual adjustment (key-in on the Inputs tab)',amt:m.amt,base:null,manual:[],det:null});
+    const totalAdj=sum(adj.map(a=>a.amt)), taxable=R.tb.netProfit+totalAdj, tax=taxable*R.rate, prepaid=R.tb.prepaidTax.amount;
+    R.cit={adj,totalAdj,taxable,tax,prepaid,due:tax-prepaid};
+  }
+  // Deferred tax
+  R.dtMissing=[];
+  if(!st.ppe) R.dtMissing.push('PPE – Depreciation');
+  if(!st.prov) R.dtMissing.push('Provision Movement');
+  if(num(k.fsFA)==null) R.dtMissing.push('Key-in: Fixed assets as per the Financial statements');
+  if(num(k.priorDT)==null) R.dtMissing.push('Key-in: Deferred tax of prior year as per audited FS');
+  if(R.rate==null) R.dtMissing.push('Applicable tax rate');
+  if(R.share==null) R.dtMissing.push('Non-Saudi shareholding percentage');
+  R.dtReady=R.dtMissing.length===0;
+  if(R.dtReady){
+    const mFA=(st.manual||[]).filter(m=>m.target==='taxFA'), mPv=(st.manual||[]).filter(m=>m.target==='dtProv');
+    const taxFA=R.ppe.tot.cf+0.5*R.ppe.tot.addCur-0.5*R.ppe.tot.consCur+sum(mFA.map(m=>m.amt));
+    const diff=taxFA-k.fsFA, dtlBase=-diff, dtl=dtlBase*R.rate, dtaBase=R.prov.end+sum(mPv.map(m=>m.amt)), dta=dtaBase*R.rate, net=(dta-dtl)*R.share;
+    R.dt={taxFA,fsFA:k.fsFA,diff,dtlBase,dtl,dtaBase,mFA,mPv,dta,net,prior:k.priorDT,movement:net-k.priorDT};
+  }
+  return R;
+}
+
+/* ---------- 4) Notices ---------- */
+function buildNotices(st,R,prev){
+  const out=[]; const add=(lv,msg,fix,tab)=>out.push({lv,msg,fix,tab});
+  const yr=st.tb&&st.tb.year;
+  if(!st.tb) add('err','Trial Balance has not been provided.','Upload the trial balance (.xlsx) for the full fiscal year on the Inputs tab.','inputs');
+  if(!st.prov) add('err','Provision Movement has not been provided.','Upload the "1.Provision Movement" sheet on the Inputs tab.','inputs');
+  if(!st.ppe) add('err','PPE – Depreciation has not been provided.','Upload the "2.PPE- Depreciation" sheet on the Inputs tab.','inputs');
+  if(!st.guar&&!st.guarNA) add('err','Normal Guarantee has not been provided and is not marked as "Not applicable".','Upload the "3.Normal Guarantee" sheet, or tick "Not applicable" if the guarantee fee rate equals the market rate.','inputs');
+  if(st.keyins.fsFA===''||st.keyins.fsFA==null) add('err','Key-in missing: Fixed assets as per the Financial statements.','Type the net book value of fixed assets from the financial statements on the Inputs tab. It is needed for Deferred Tax.','inputs');
+  if(st.keyins.priorDT===''||st.keyins.priorDT==null) add('err','Key-in missing: Deferred tax of the prior year as per audited FS.','Type the prior-year closing deferred tax balance on the Inputs tab. It is needed for the deferred tax movement.','inputs');
+  if(st.guar&&st.guar.marketRate==null&&!st.guarNA) add('err','Normal Guarantee: the market value rate (%) was not found under the "Market Value" header.','Add the market rate (e.g. 1.85%) in the cell below "Market Value" and upload the sheet again.','inputs');
+  if(st.guar&&st.guarNA) add('info','Normal Guarantee data is uploaded but "Not applicable" is ticked, so the guarantee add-back is 0.','Untick "Not applicable" on the Inputs tab if the uploaded guarantee schedule should be used.','inputs');
+  if(st.tb){
+    if(!yr) add('warn','The fiscal year could not be read from the trial balance (expected text like "[Date range 01/01/2025 to 31/12/2025]").','Check that the uploaded file is the full-year trial balance. Titles will show no year.','data');
+    const lab=k=>st.map[k].label;
+    for(const k of Object.keys(st.map)){ const m=R.tb[k].missing; if(!m.length) continue;
+      const cross=['depreciation','bookedCIT','bookedDT'].includes(k), zero=['prepaidTax'].includes(k);
+      add(cross||zero?'info':'warn','Account code '+m.join(', ')+' ('+lab(k)+') was not found in the trial balance; it is counted as 0.',cross?'This only affects a cross-check. If the code changed, update it under "Account mapping" on the Inputs tab.':'If the account code changed in the ERP, update it under "Account mapping" on the Inputs tab. If the account has no balance this year, no action is needed.','inputs'); }
+    const mapped=new Set([...st.map.entertainment.codes,...st.map.taxDues.codes]);
+    const sus=st.tb.accts.filter(a=>!mapped.has(a.code)&&a.ytdDr!==0&&(/entertain/i.test(a.name)||/tax\s*(&|and)\s*dues/i.test(a.name)));
+    if(sus.length) add('warn','These accounts look like Entertainment / Tax & Dues but are not included in the disallowed add-backs: '+sus.map(a=>a.name+' ['+a.code+']').join('; ')+'.','If they should be disallowed, add their codes under "Account mapping" on the Inputs tab.','inputs');
+    const g=st.tb.grand; if(g&&Math.abs(g.ytdDr-g.ytdCr)>0.005) add('warn','Trial balance Grand Total is not balanced: Dr (YTD) '+fmt(g.ytdDr)+' vs Cr (YTD) '+fmt(g.ytdCr)+'.','Re-export the trial balance from the ERP and upload it again.','data');
+    if(st.tb.profit){ const p=st.tb.profit; const tbProfit=(p.ytdCr-p.ytdDr); const exp=R.tb.netProfit-R.tb.bookedCIT.amount+R.tb.bookedDT.amount;
+      if(Math.abs(tbProfit-exp)>0.01) add('warn','Net profit does not reconcile to the trial balance. Calculated net profit before tax '+fmt(R.tb.netProfit)+' − booked CIT '+fmt(R.tb.bookedCIT.amount)+' + booked deferred tax '+fmt(R.tb.bookedDT.amount)+' = '+fmt(exp)+', but "Profit for the period" in the trial balance is '+fmt(tbProfit)+' (difference '+fmt(exp-tbProfit)+').','An income or expense account may sit outside the mapped parent accounts. Review "Account mapping" on the Inputs tab.','cit');
+      else add('ok','Net profit reconciles to "Profit for the period" in the trial balance ('+fmt(tbProfit)+' after booked tax).','','cit'); }
+    if(R.ppe&&R.ppe.gl!=null&&!R.tb.depreciation.missing.length&&Math.abs(R.ppe.gl-R.tb.depreciation.amount)>0.01) add('warn','Depreciation per GL in the PPE sheet ('+fmt(R.ppe.gl)+') differs from the depreciation accounts in the trial balance ('+fmt(R.tb.depreciation.amount)+').','Check the "Depreciation + Amortization as per GL" amount in the PPE sheet.','data');
+  }
+  if(st.prov){ for(const x of st.prov.items){ const calc=x.open+x.prov-x.util+x.adj; if(Math.abs(calc-x.end)>0.5) add('warn','Provision "'+x.name+'" does not roll forward: Opening + Provided − Utilized + Adjustments = '+fmt(calc)+', but Ending Balance is '+fmt(x.end)+'.','Check the Provision Movement sheet. The ending balance as given is used for Deferred Tax.','data'); } }
+  if(R.ppe){
+    if(R.ppe.gl==null) add('err','PPE – Depreciation: the "Depreciation + Amortization as per GL" amount was not found.','Fill that amount in the Totals column of the PPE sheet and upload again.','inputs');
+    if(R.ppe.tot.rmDis>0) add('warn','Repair & maintenance above the 4% limit: '+fmt(R.ppe.tot.rmDis)+' is added to the asset group balance carried forward, but the Excel working has no line adding it back to taxable profit, so this app does not add it back either.','Please confirm whether this amount should also be added to taxable profit.','cit');
+    if(R.ppe.tot.consCur!==0) add('warn','Current-year considerations (disposal proceeds) are '+fmt(R.ppe.tot.consCur)+'. For Deferred Tax, the tax base of fixed assets follows the note text ("… − 50% of current year considerations"), while the formula in the Excel working did not subtract it.','Please confirm which treatment is correct.','dt');
+    if(st.ppe.groups.length!==6) add('warn','PPE – Depreciation has '+st.ppe.groups.length+' asset group columns; 6 were expected (Land + Groups 1–5).','Check the header row of the PPE sheet.','data');
+  }
+  if(R.guar&&!st.guarNA){
+    if(R.guar.dis!=null&&R.guar.dis<0) add('warn','Guarantee fee is below market value; the add-back is negative ('+fmt(R.guar.dis)+').','Check the fee rate and market rate, or tick "Not applicable".','data');
+    if(R.guar.marketRate!=null&&st.guar.items.every(x=>x.rate===R.guar.marketRate)) add('info','Guarantee fee rate equals the market rate on every line; the add-back is 0.','No action needed.','data');
+  }
+  if(R.share!=null&&R.share!==1) add('warn','Non-Saudi shareholding is '+(R.share*100)+'%. As in the Excel working, this percentage is applied to Deferred Tax only; Corporate Income Tax uses the tax rate on 100% of taxable profit and Zakat is not calculated.','Please confirm the treatment for mixed ownership before using the result.','cit');
+  if(R.cit){
+    if(R.cit.taxable<0) add('warn','Taxable profit is negative (tax loss). The app shows a negative tax amount; loss carry-forward is not calculated.','Treat the income tax for the year as nil and review the loss carry-forward separately.','cit');
+  }
+  if((st.manual||[]).length) add('info',st.manual.length+' manual adjustment'+(st.manual.length>1?'s are':' is')+' applied: '+st.manual.map(m=>(MAN_TARGETS[m.target]||m.target)+' '+fmt(m.amt)+' ('+m.desc+')').join('; ')+'.','They are shown as separate lines in the computation. Review them under "Manual adjustments" on the Inputs tab.','inputs');
+  if(prev){ const py=(App.year-1);
+    if(prev.ppe&&R.ppe){ const d=R.ppe.g.map((g,i)=>({g,p:prev.ppe.g[i]})).filter(x=>x.p&&Math.abs(x.g.open-x.p.cf)>0.5);
+      if(d.length) add('warn','PPE opening balance differs from the balance carried forward in FY'+py+' saved in this app: '+d.map(x=>x.g.name.slice(0,40)+' – opening '+fmt(x.g.open)+' vs FY'+py+' carried forward '+fmt(x.p.cf)).join('; ')+'.','Check the "Ending Balance as per prior year" row of the PPE sheet, or confirm that the FY'+py+' figures were revised.','data'); }
+    if(prev.dt&&st.keyins.priorDT!==''&&st.keyins.priorDT!=null&&Math.abs(st.keyins.priorDT-prev.dt.net)>0.5) add('info','Key-in "Deferred tax of prior year" ('+fmt(st.keyins.priorDT)+') differs from the FY'+py+' net deferred tax position saved in this app ('+fmt(prev.dt.net)+').','No action needed if the key-in agrees with the audited financial statements.','inputs');
+    if(prev.prov&&R.prov&&Math.abs(R.prov.open-prev.prov.end)>0.5) add('info','Provision opening balance ('+fmt(R.prov.open)+') differs from the FY'+py+' ending balance saved in this app ('+fmt(prev.prov.end)+').','Check the Provision Movement sheet if this is not expected.','data'); }
+  return out;
+}
+
+/* ---------- 5) Storage: the team's shared folder (File System Access) or this browser (IndexedDB) ---------- */
+const idb={db:null,
+  async open(){ if(this.db) return this.db; this.db=await new Promise((res,rej)=>{ const r=indexedDB.open('sgc-cit-app',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); return this.db; },
+  async tx(mode,fn){ const db=await this.open(); return new Promise((res,rej)=>{ const s=db.transaction('kv',mode).objectStore('kv'); const q=fn(s); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); },
+  get(k){ return this.tx('readonly',s=>s.get(k)); }, set(k,v){ return this.tx('readwrite',s=>s.put(v,k)); }, keys(){ return this.tx('readonly',s=>s.getAllKeys()); }};
+const localStore={kind:'local',name:'',
+  async read(p){ const v=await idb.get('f:'+p); return v?new Uint8Array(v):null; },
+  async write(p,u8){ await idb.set('f:'+p,u8); },
+  async list(dir){ const pre='f:'+(dir?dir+'/':''); const set=new Set(); for(const k of await idb.keys()) if(typeof k==='string'&&k.startsWith(pre)) set.add(k.slice(pre.length).split('/')[0]); return [...set].sort(); }};
+function folderStore(root){
+  const dirOf=async(parts,create)=>{ let d=root; for(const p of parts) d=await d.getDirectoryHandle(p,{create}); return d; };
+  return {kind:'folder',name:root.name,
+    async read(p){ try{ const parts=p.split('/'),f=parts.pop(); const d=await dirOf(parts,false); const h=await d.getFileHandle(f); return new Uint8Array(await (await h.getFile()).arrayBuffer()); }catch(e){ if(e.name==='NotFoundError'||e.name==='TypeMismatchError') return null; throw e; } },
+    async write(p,u8){ const parts=p.split('/'),f=parts.pop(); const d=await dirOf(parts,true); const h=await d.getFileHandle(f,{create:true}); const w=await h.createWritable(); await w.write(u8); await w.close(); },
+    async list(dir){ try{ const d=await dirOf(dir?dir.split('/'):[],false); const out=[]; for await(const [n] of d.entries()) out.push(n); return out.sort(); }catch(e){ return []; } }};
+}
+const te=new TextEncoder(), tdec=new TextDecoder();
+
+/* ---------- 6) State and helpers ---------- */
+const blank=()=>({tb:null,prov:null,ppe:null,guar:null,guarNA:false,final:false,savedAt:null,manual:[],src:{},keyins:{fsFA:'',priorDT:'',taxRate:0.2,share:1},map:JSON.parse(JSON.stringify(DEFAULT_MAP))});
+const App={store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
+let st=blank(), tab='inputs', dataTab='tb', undoSnap=null, tbFilter='', tbUsedOnly=false, mapOpen=false;
+const yearDir=y=>'FY'+y;
+function normalize(s){ const b=blank(); const o=Object.assign(b,s); o.keyins=Object.assign(blank().keyins,s.keyins||{}); delete o.keyins.guarRound; o.map=Object.assign(JSON.parse(JSON.stringify(DEFAULT_MAP)),s.map||{}); o.src=s.src||{}; o.manual=Array.isArray(s.manual)?s.manual:[]; return o; }
+async function readState(y){ const u=await App.store.read(yearDir(y)+'/data.json'); if(!u) return null; try{ const j=JSON.parse(tdec.decode(u)); if(j.app!=='sgc-cit'||!j.state) return null; return normalize(j.state); }catch(e){ return null; } }
+async function loadAll(){ const names=await App.store.list(''); App.years=names.map(n=>/^FY(\d{4})$/.exec(n)).filter(Boolean).map(m=>+m[1]).sort((a,b)=>b-a); App.hist={}; for(const y of App.years){ const s=await readState(y); if(s) App.hist[y]=s; } App.years=App.years.filter(y=>App.hist[y]); }
+async function openYear(y){ const s=await readState(y); App.year=y; st=s||blank(); App.loadedAt=st.savedAt||null; App.conflict=false; undoSnap=null; if(s) App.hist[y]=s; }
+let saveQ=Promise.resolve();
+function save(){ if(App.year==null) return saveQ; const y=App.year, snap=JSON.stringify(st); App.hist[y]=JSON.parse(snap);
+  saveQ=saveQ.then(()=>doSave(y,snap)).catch(e=>{ App.savedMsg='NOT saved – '+(e&&e.message||e); renderHeader(); toast('Your change could not be saved: '+(e&&e.message||e)+' Check the shared folder connection.'); }); return saveQ; }
+async function doSave(y,snap){
+  if(App.conflict) return;
+  const cur=await readState(y);
+  if(cur&&App.year===y&&(cur.savedAt||null)!==App.loadedAt){ App.conflict=true; render(); return; }
+  const s=JSON.parse(snap); s.savedAt=new Date().toISOString();
+  await App.store.write(yearDir(y)+'/data.json',te.encode(JSON.stringify({app:'sgc-cit',version:2,state:s},null,1)));
+  App.hist[y]=s; if(!App.years.includes(y)){ App.years.push(y); App.years.sort((a,b)=>b-a); }
+  if(App.year===y){ st.savedAt=s.savedAt; App.loadedAt=s.savedAt; }
+  App.savedMsg='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); renderHeader();
+}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmt(v,d=2){ if(v==null||v==='') return '–'; const a=Math.abs(v); if(a<0.5*Math.pow(10,-d)) return (0).toFixed(d); const s=a.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); return v<0?'('+s+')':s; }
+const cellN=(v,d)=>'<td class="n'+(v<0?' neg':'')+'">'+fmt(v,d)+'</td>';
+const pct=v=>v==null?'–':(Math.round(v*1e6)/1e4)+'%';
+const when=iso=>iso?new Date(iso).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}):'–';
+function xlDate(v){ if(typeof v!=='number') return esc(S(v)); const d=new Date(Math.round((v-25569)*864e5)); return d.toISOString().slice(0,10); }
+function parseNum(s){ s=String(s).trim(); if(s==='') return ''; let neg=false; if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);} s=s.replace(/,/g,'').replace(/\s/g,''); let p=false; if(/%$/.test(s)){p=true;s=s.slice(0,-1);} if(s===''||isNaN(Number(s))) return NaN; let v=Number(s); if(p) v/=100; return neg?-v:v; }
+const fy=()=>App.year;
+const prevResult=()=>{ const p=App.year!=null?App.hist[App.year-1]:null; return p?compute(p):null; };
+const KIND_LABEL={tb:'Trial Balance',prov:'Provision Movement',ppe:'PPE – Depreciation',guar:'Normal Guarantee'};
+
+function toast(msg,undo){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; document.getElementById('toastUndo').style.display=undo?'':'none'; t.style.display='flex'; clearTimeout(toast.h); toast.h=setTimeout(()=>{t.style.display='none'; },undo?9000:6000); }
+function snapshot(){ undoSnap=JSON.stringify(st); }
+document.getElementById('toastUndo').onclick=()=>{ if(undoSnap){ const keep=st.savedAt; st=JSON.parse(undoSnap); st.savedAt=keep; undoSnap=null; save(); render(); toast('Restored.'); } };
+function confirmBox(title,body,okLabel,fn){ const m=document.getElementById('modal'); document.getElementById('modalTitle').textContent=title; document.getElementById('modalBody').textContent=body; const ok=document.getElementById('modalOk'); ok.textContent=okLabel; m.style.display='flex';
+  const close=()=>{m.style.display='none'; document.removeEventListener('keydown',esc_);}; const esc_=e=>{ if(e.key==='Escape') close(); };
+  document.addEventListener('keydown',esc_); document.getElementById('modalCancel').onclick=close; ok.onclick=()=>{close();fn();}; document.getElementById('modalCancel').focus(); }
+
+async function connectFolder(handle){
+  App.connectMsg=''; let step='pick';
+  try{
+    if(!handle) handle=await window.showDirectoryPicker({mode:'readwrite'});
+    step='permission';
+    const perm=handle.requestPermission?await handle.requestPermission({mode:'readwrite'}):'granted';
+    if(perm!=='granted'){ App.connectMsg='The browser did not give permission to edit the folder "'+handle.name+'". Click Connect shared folder again and choose "Edit files" / "Allow".'; return render(); }
+    step='test';
+    const fh=await handle.getFileHandle('.cit-write-test',{create:true}); const w=await fh.createWritable(); await w.write('ok'); await w.close(); await handle.removeEntry('.cit-write-test');
+    await saveQ;
+    App.store=folderStore(handle); App.pending=null; try{ await idb.set('dirHandle',handle); }catch(e){}
+    await loadAll(); App.year=null; st=blank(); if(App.years.length) await openYear(App.years[0]);
+    tab=App.years.length?tab:'inputs'; render(); toast('Connected to shared folder: '+handle.name+(App.years.length?'':' (no saved years yet)'));
+  }catch(e){
+    if(e.name==='AbortError'&&step==='pick') return;
+    const why=e.name==='SecurityError'||e.name==='NotAllowedError'?'The browser or a company policy blocked access to this folder.':e.name==='NoModificationAllowedError'||e.name==='InvalidModificationError'?'The folder is read-only for this Windows user (the share permission must be Read/Write).':'The folder could not be opened.';
+    App.connectMsg=why+' (Step: '+step+'. Details: '+e.name+' – '+e.message+') Try choosing the folder by its network path instead of a drive letter.'; render();
+  }
+}
+
+async function handleFiles(fileList){
+  if(App.year==null){ toast('Choose the fiscal year first, then upload the files.'); return; }
+  if(st.final){ toast('FY'+App.year+' is marked as final. Unlock it on the Inputs tab before uploading.'); return; }
+  const msgs=[]; let changed=false; const before=JSON.stringify(st);
+  for(const f of fileList){
+    if(/\.xls$/i.test(f.name)){ msgs.push(f.name+': old .xls format is not supported. Open it in Excel and "Save As" .xlsx, then upload again.'); continue; }
+    if(!/\.xlsx$|\.xlsm$/i.test(f.name)){ msgs.push(f.name+': not an Excel file. Please upload .xlsx files.'); continue; }
+    let sheets,buf; try{ buf=await f.arrayBuffer(); sheets=await readXlsx(buf); }catch(e){ msgs.push(f.name+': '+e.message); continue; }
+    let found=0;
+    for(const sh of sheets){ const kind=detectKind(sh.rows); if(!kind) continue;
+      try{ const parsed=PARSERS[kind](sh.rows);
+        if(kind==='tb'&&parsed.year&&parsed.year!==App.year){ msgs.push('The trial balance in "'+f.name+'" is for '+parsed.year+', but you are working on fiscal year '+App.year+'. It was NOT loaded. Choose fiscal year '+parsed.year+' in the top bar (or start it as a new year) and upload again.'); found++; continue; }
+        const replaced=!!st[kind]; st[kind]=parsed; st.src[kind]={file:f.name,sheet:sh.name,at:new Date().toISOString()}; found++; changed=true;
+        msgs.push((replaced?'Replaced ':'Loaded ')+KIND_LABEL[kind]+' from sheet "'+sh.name+'".'); }
+      catch(e){ msgs.push(f.name+' / sheet "'+sh.name+'": '+e.message); } }
+    if(!found) msgs.push(f.name+': no recognizable sheet was found. Expected a Trial Balance, Provision Movement, PPE – Depreciation or Normal Guarantee sheet in the standard layout (see Help).');
+    else if(changed){ try{ await App.store.write(yearDir(App.year)+'/source/'+f.name,new Uint8Array(buf)); }catch(e){ msgs.push('The original file could not be copied to the shared folder ('+e.message+').'); } }
+  }
+  if(changed){ undoSnap=before; save(); }
+  render(); toast(msgs.join(' '),changed);
+}
+
+function checklist(R){
+  const k=st.keyins;
+  return [
+    {id:'tb',title:'Trial Balance',req:true,done:!!st.tb,desc:'Full-year trial balance from the ERP (columns: Particulars, Code, opening, period and YTD debits/credits).',use:'Net profit, entertainment, tax & dues, prepaid tax'},
+    {id:'prov',title:'1. Provision Movement',req:true,done:!!st.prov,desc:'Opening, provided, utilized, adjustments and ending balance of each provision.',use:'CIT add-back / deduction, deferred tax asset'},
+    {id:'ppe',title:'2. PPE – Depreciation',req:true,done:!!st.ppe,desc:'ZATCA asset group schedule: prior-year balance, additions, considerations, R&M, and depreciation per GL.',use:'Depreciation difference, tax base of fixed assets'},
+    {id:'guar',title:'3. Normal Guarantee',req:false,done:!!st.guar||st.guarNA,na:st.guarNA&&true,desc:'Guarantee fee paid to related party vs market value. Not needed if the guarantee fee rate equals the market rate.',use:'Disallowed guarantee fee'},
+    {id:'fsFA',title:'Key-in: Fixed assets as per the Financial statements',req:true,done:k.fsFA!==''&&k.fsFA!=null,desc:'Net book value of fixed assets in the financial statements at year end.',use:'Deferred tax – Note 1'},
+    {id:'priorDT',title:'Key-in: Deferred tax of prior year as per audited FS',req:true,done:k.priorDT!==''&&k.priorDT!=null,desc:'Closing deferred tax balance of the prior year (asset = positive).',use:'Deferred tax movement for the year'}
+  ];
+}
+
+function renderHeader(){
+  document.getElementById('hsub').textContent=(st.tb&&st.tb.company?st.tb.company+' · ':'')+'Corporate Income Tax & Deferred Tax (amounts in SAR)';
+  const sel=document.getElementById('yearSel'); const ys=[...App.years]; if(App.year!=null&&!ys.includes(App.year)) ys.unshift(App.year);
+  sel.innerHTML=(App.year==null?'<option value="" selected>– choose –</option>':'')+ys.map(y=>'<option value="'+y+'"'+(y===App.year?' selected':'')+'>FY'+y+((y===App.year?st:App.hist[y]||{}).final?' · final':'')+'</option>').join('')+'<option value="new">＋ New fiscal year…</option>';
+  document.getElementById('storeInfo').innerHTML=(App.store.kind==='folder'?'Shared folder: <b>'+esc(App.store.name)+'</b>':'<b>This browser only</b> (not shared)')+(App.savedMsg?' · '+esc(App.savedMsg):'');
+  const b=document.getElementById('btnFolder'); b.style.display=window.showDirectoryPicker?'':'none'; b.textContent=App.pending?'Reconnect shared folder':App.store.kind==='folder'?'Change folder':'Connect shared folder';
+}
+function render(){
+  const R=compute(st), notices=buildNotices(st,R,prevResult()); window.__R=R; window.__notices=notices;
+  const nErr=notices.filter(n=>n.lv==='err').length, nWarn=notices.filter(n=>n.lv==='warn').length, nInfo=notices.filter(n=>n.lv==='info').length;
+  const cl=checklist(R), done=cl.filter(c=>c.done).length;
+  renderHeader();
+  const tabs=[['inputs','1 · Inputs',App.year==null?'':'<span class="badge '+(done===cl.length?'ok':'')+'">'+done+'/'+cl.length+'</span>'],['data','2 · Source data',''],['cit','3 · Corporate Income Tax',''],['dt','4 · Deferred Tax',''],
+    ['notices','Notices',App.year==null?'':(nErr?'<span class="badge err" title="Missing inputs / errors">'+nErr+'</span>':'')+(nWarn?'<span class="badge warn" title="Please review">'+nWarn+'</span>':'')+(nInfo?'<span class="badge" title="For information">'+nInfo+'</span>':'')+(!nErr&&!nWarn&&!nInfo?'<span class="badge ok">0</span>':'')],['history','History','<span class="badge">'+App.years.length+'</span>'],['help','Help','']];
+  document.getElementById('nav').innerHTML=tabs.map(([id,l,b])=>'<button role="tab" id="tab-'+id+'" aria-selected="'+(tab===id)+'" data-tab="'+id+'">'+l+b+'</button>').join('');
+  const sec=(id,html)=>'<section role="tabpanel" aria-labelledby="tab-'+id+'" class="'+(['cit','dt','notices'].includes(id)?'printme':'')+'" style="display:'+(tab===id?'block':'none')+'">'+html+'</section>';
+  const keep=document.activeElement&&document.activeElement.id, selS=keep?document.activeElement.selectionStart:null;
+  const noYear='<div class="card blocked"><h2>No fiscal year is open</h2><div class="hint" style="margin:8px 0 14px">Choose a fiscal year in the top bar, or start a new one on the Inputs tab.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
+  let banner='';
+  if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for FY'+App.year+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
+  if(App.connectMsg) banner+='<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>';
+  if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>FY'+App.year+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
+  document.getElementById('main').innerHTML=banner+sec('inputs',App.year==null?vStart():vInputs(R,cl,done))+sec('data',App.year==null?noYear:vData(R))+sec('cit',App.year==null?noYear:vCIT(R))+sec('dt',App.year==null?noYear:vDT(R))+sec('notices',App.year==null?noYear:vNotices(notices))+sec('history',vHistory())+sec('help',vHelp());
+  if(keep){ const el=document.getElementById(keep); if(el&&el.tagName==='INPUT'){ el.focus(); try{ if(selS!=null) el.setSelectionRange(selS,selS); }catch(e){} } }
+  bind();
+}
+function go(t){ tab=t; render(); window.scrollTo(0,0); }
+const folderHelp=()=>App.store.kind==='folder'?'':(window.showDirectoryPicker
+  ?'<div class="notice warn noprint"><b class="lv">Sharing</b><div>Data is currently saved <b>in this browser only</b>, so colleagues cannot see it.<div class="fix"><b>What to do:</b> click <b>Connect shared folder</b> (top right) and pick the team\'s network folder for this app. In the folder window, type the network path (for example <code>\\\\JKPC\\Corporate Income Tax</code>) in the <b>Folder:</b> box, click <b>Select Folder</b>, then <b>Edit files</b> / <b>Allow</b>. Do not pick a drive letter such as Z:.</div></div></div>'
+  :'<div class="notice warn noprint"><b class="lv">Sharing</b><div>This browser cannot connect a shared folder, so data is saved in this browser only. Use Chrome or Edge on a computer to share data with the team.</div></div>');
+
+function vStart(){
+  return folderHelp()+'<div class="card"><h2>Which fiscal year are you preparing?</h2><div class="hint">Each fiscal year is saved separately, so earlier years stay available under History.</div>'
+   +'<div class="keyin" style="margin-top:12px"><label for="newYear">Fiscal year</label><input type="text" id="newYear" inputmode="numeric" maxlength="4" placeholder="e.g. 2025" style="width:120px"><button class="primary" id="btnStartYear">Start this year</button><span class="fielderr" id="e-newYear"></span></div>'
+   +(App.years.length?'<div class="hint" style="margin-top:12px">Already saved: '+App.years.map(y=>'<button class="link" data-open="'+y+'">FY'+y+'</button>').join(' · ')+'</div>':'')+'</div>';
+}
+function vInputs(R,cl,done){
+  const k=st.keyins, lock=!!st.final, dis=lock?' disabled':'';
+  const srcLine=id=>st.src[id]?'<div class="hint">Loaded from <b>'+esc(st.src[id].file)+'</b> · sheet "'+esc(st.src[id].sheet)+'" · '+esc(st.src[id].at.slice(0,10))+'</div>':'';
+  const summary={tb:()=>st.tb.accts.length+' accounts'+(st.tb.period?' · '+esc(st.tb.period):''),prov:()=>st.prov.items.length+' provisions · ending balance '+fmt(R.prov.end),ppe:()=>'Depreciation per ZATCA '+fmt(R.ppe.tot.dep)+' · per GL '+fmt(R.ppe.gl),guar:()=>st.guar.items.length+' guarantees · market rate '+pct(st.guar.marketRate)};
+  const keyField=(id,val,ph)=>'<div class="keyin"><label for="k-'+id+'" class="hint">Amount (SAR)</label><input type="text" id="k-'+id+'" data-key="'+id+'" inputmode="decimal" placeholder="'+ph+'"'+dis+' value="'+(val===''||val==null?'':esc(fmt(val).replace(/^\((.*)\)$/,'-$1')))+'"><span class="fielderr" id="e-'+id+'"></span></div>';
+  const pr=prevResult(); const sug=pr&&pr.dt?Math.round(pr.dt.net*100)/100:null;
+  const row=c=>{
+    let body='<div><span class="t">'+esc(c.title)+'</span><span class="tag '+(c.req?'req':'opt')+'">'+(c.req?'Required':'Optional')+'</span><div class="hint">'+esc(c.desc)+'</div><div class="hint">Used for: '+esc(c.use)+'</div>';
+    let act='';
+    if(['tb','prov','ppe','guar'].includes(c.id)){
+      if(st[c.id]){ body+='<div style="margin-top:4px">'+summary[c.id]()+'</div>'+srcLine(c.id); act='<button data-view="'+c.id+'">View table</button>'+(lock?'':' <button class="danger" data-remove="'+c.id+'">Remove</button>'); }
+      else body+='<div class="hint" style="color:var(--err);margin-top:4px">'+(c.id==='guar'&&st.guarNA?'':'Not provided yet – upload the Excel file above.')+'</div>';
+      if(c.id==='guar') body+='<div style="margin-top:6px"><label><input type="checkbox" id="guarNA" '+(st.guarNA?'checked':'')+dis+'> Not applicable this year (guarantee fee rate equals the market rate – add-back is 0)</label></div>';
+    } else if(c.id==='fsFA') body+=keyField('fsFA',k.fsFA,'e.g. 3,112,612.39');
+    else if(c.id==='priorDT'){ body+=keyField('priorDT',k.priorDT,'e.g. 10,930.00');
+      if(sug!=null&&!lock&&k.priorDT!==sug) body+='<div class="hint noprint" style="margin-top:4px">FY'+(App.year-1)+' saved in this app shows a net deferred tax position of '+fmt(sug)+'. <button class="link" id="btnUsePrior" data-v="'+sug+'">Use this amount</button> (check it against the audited FS first)</div>'; }
+    body+='</div>';
+    return '<div class="check"><div class="tick '+(c.done?(c.na?'na':'done'):'')+'" role="img" aria-label="'+(c.done?(c.na?'Not applicable':'Provided'):'Not provided')+'">'+(c.done?(c.na?'–':'✓'):'')+'</div>'+body+'<div class="noprint">'+act+'</div></div>';
+  };
+  const mapRows=Object.entries(st.map).map(([key,m])=>{ const found=st.tb?m.codes.map(c=>{const a=st.tb.accts.find(x=>x.code===c); return a?esc(a.name):'<span class="neg">'+esc(c)+' not found</span>';}).join('; '):'–';
+    return '<tr><td>'+esc(m.label)+'</td><td class="hint">'+esc(m.use)+'</td><td><input type="text" class="wide" data-map="'+key+'" id="m-'+key+'"'+dis+' value="'+esc(m.codes.join(', '))+'" aria-label="Account codes for '+esc(m.label)+'"></td><td>'+found+'</td></tr>'; }).join('');
+  const allDone=done===cl.length;
+  return folderHelp()+'<div class="card"><div class="statusbar"><div><h2>FY'+App.year+' · Inputs checklist</h2><div class="hint">'+(allDone?'All inputs are provided. Review the results in tabs 3 and 4.':'Provide each item below. A green tick appears as each one is received.')+'</div></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="'+cl.length+'" aria-valuenow="'+done+'" aria-label="Inputs provided"><div style="width:'+(done/cl.length*100)+'%"></div></div><b>'+done+' of '+cl.length+' provided</b></div>'
+   +(lock?'':'<div class="drop noprint" id="drop"><b>Drop Excel file(s) here</b> or <button class="primary" id="btnBrowse">Choose files…</button><div class="hint" style="margin-top:6px">One workbook containing all sheets, or separate .xlsx files – each sheet is recognized automatically by its layout. Uploading again replaces the earlier data. Every change is saved automatically.</div><input type="file" id="fileIn" accept=".xlsx,.xlsm" multiple hidden></div>')
+   +'<div class="noprint" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+(lock?'':(allDone?'<button class="primary" id="btnFinal" title="Lock this year so it cannot be changed by accident">Mark FY'+App.year+' as final</button>':'')+'<button class="danger" id="btnReset">Clear this year\'s inputs</button>')+'</div></div>'
+   +'<div class="card">'+cl.map(row).join('')+'</div>'
+   +'<div class="card"><h2>Manual adjustments <span class="tag opt">Optional</span></h2><div class="hint">Use this only when the provided data carries a manual adjustment (for example a rounding adjustment inside an Excel total). Each one is added to the chosen line and shown as its own line in the computation. A positive amount increases the line; a negative amount decreases it.</div>'
+   +((st.manual||[]).length?'<table style="margin-top:8px"><thead><tr><th>Line</th><th>Reason</th><th class="n">Amount (SAR)</th><th></th></tr></thead><tbody>'+st.manual.map((m,i)=>'<tr><td>'+esc(MAN_TARGETS[m.target]||m.target)+'</td><td>'+esc(m.desc)+'</td>'+cellN(m.amt)+'<td class="noprint">'+(lock?'':'<button class="danger" data-rmman="'+i+'">Remove</button>')+'</td></tr>').join('')+'</tbody></table>':'<div class="hint" style="margin-top:8px"><b>None.</b> The computation uses the uploaded data exactly as calculated.</div>')
+   +(lock?'':'<div class="keyin noprint" style="margin-top:10px;align-items:flex-end"><label class="hint" for="manTarget">Line<br><select class="in" id="manTarget">'+Object.entries(MAN_TARGETS).map(([k2,v])=>'<option value="'+k2+'">'+esc(v)+'</option>').join('')+'</select></label><label class="hint" for="manDesc">Reason<br><input type="text" class="wide" id="manDesc" maxlength="120" placeholder="e.g. Rounding as per advisor"></label><label class="hint" for="manAmt">Amount (SAR)<br><input type="text" id="manAmt" inputmode="decimal" placeholder="e.g. -0.03" style="width:140px"></label><button class="primary" id="btnAddMan">Add adjustment</button><span class="fielderr" id="e-man"></span></div>')+'</div>'
+   +'<div class="card"><h2>Tax settings</h2><div class="hint">Defaults follow the existing Excel working. Change only if the law or ownership changes.</div>'
+   +'<div class="keyin"><label for="k-taxRate" style="width:300px">Applicable tax rate (%)</label><input type="text" id="k-taxRate" data-key="taxRate" data-pct="1"'+dis+' value="'+(k.taxRate===''?'':k.taxRate*100)+'"><span class="fielderr" id="e-taxRate"></span></div>'
+   +'<div class="keyin"><label for="k-share" style="width:300px">Non-Saudi shareholding percentage (%)</label><input type="text" id="k-share" data-key="share" data-pct="1"'+dis+' value="'+(k.share===''?'':k.share*100)+'"><span class="fielderr" id="e-share"></span></div></div>'
+   +'<div class="card"><details '+(mapOpen?'open':'')+' id="mapDetails"><summary style="font-size:14px;font-weight:600;color:var(--ink)">Account mapping (advanced) – which trial balance codes feed each line</summary><div class="hint" style="margin:6px 0">Separate several codes with commas. Use the parent (total) account for income and expense lines. '+(lock?'':'<button class="link" id="mapReset">Restore default codes</button>')+'</div><table class="maptable"><thead><tr><th>Line</th><th>Amount used</th><th>Account code(s)</th><th>Found in trial balance</th></tr></thead><tbody>'+mapRows+'</tbody></table></details></div>';
+}
+
+function vData(R){
+  const btn=(id,l)=>'<button aria-pressed="'+(dataTab===id)+'" data-dtab="'+id+'">'+l+(st[id]?'':' (not provided)')+'</button>';
+  let h='<div class="card"><h2>Source data</h2><div class="hint">The data you uploaded, shown as tables. Calculated columns are recomputed by the app from your inputs.</div><div class="subtabs" style="margin-top:10px">'+btn('tb','Trial Balance')+btn('prov','1. Provision Movement')+btn('ppe','2. PPE – Depreciation')+btn('guar','3. Normal Guarantee')+'</div>';
+  const none=l=>'<div class="blocked"><b>'+l+' has not been provided.</b><div class="hint" style="margin:6px 0 12px">'+(dataTab==='guar'&&st.guarNA?'It is marked as "Not applicable" on the Inputs tab.':'Upload it on the Inputs tab to see it here.')+'</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
+  if(dataTab==='tb'){ if(!st.tb) h+=none('Trial Balance'); else {
+    const used={}; for(const [k,m] of Object.entries(st.map)) for(const c of m.codes) (used[c]||(used[c]=[])).push(m.label);
+    const q=tbFilter.toLowerCase(); const rows=st.tb.accts.filter(a=>(!q||a.name.toLowerCase().includes(q)||a.code.toLowerCase().includes(q))&&(!tbUsedOnly||used[a.code]));
+    h+='<div class="keyin noprint" style="margin-bottom:8px"><label for="tbFilter">Find account</label><input type="text" class="wide" id="tbFilter" placeholder="Name or code" value="'+esc(tbFilter)+'"><label><input type="checkbox" id="tbUsed" '+(tbUsedOnly?'checked':'')+'> Show only accounts used in the tax calculation</label><span class="hint">'+rows.length+' of '+st.tb.accts.length+' accounts</span></div>'
+     +'<div class="scroll"><table><thead><tr><th>Particulars</th><th>Code</th><th class="n">Dr (Op bal)</th><th class="n">Cr (Op bal)</th><th class="n">Debits</th><th class="n">Credits</th><th class="n">Dr (YTD)</th><th class="n">Cr (YTD)</th><th>Used for</th></tr></thead><tbody>'
+     +rows.map(a=>'<tr class="'+(used[a.code]?'used':'')+'"><td style="padding-left:'+(8+a.indent*14)+'px">'+esc(a.name)+'</td><td>'+esc(a.code)+'</td>'+['opDr','opCr','dr','cr','ytdDr','ytdCr'].map(f=>'<td class="n">'+(a[f]?fmt(a[f]):'')+'</td>').join('')+'<td>'+(used[a.code]?used[a.code].map(u=>'<span class="tag use">'+esc(u)+'</span>').join(' '):'')+'</td></tr>').join('')
+     +(st.tb.grand&&!q&&!tbUsedOnly?'<tr class="total"><td>Grand Total</td><td></td>'+['opDr','opCr','dr','cr','ytdDr','ytdCr'].map(f=>cellN(st.tb.grand[f])).join('')+'<td></td></tr>':'')
+     +'</tbody></table></div>'; } }
+  if(dataTab==='prov'){ if(!st.prov) h+=none('Provision Movement'); else {
+    h+='<table><thead><tr><th>Name</th><th class="n">Opening Balance</th><th class="n">Provided during the year</th><th class="n">Utilized during the year</th><th class="n">Adjustments / Reversals</th><th class="n">Ending Balance</th></tr></thead><tbody>'
+     +st.prov.items.map(x=>'<tr><td>'+esc(x.name)+'</td>'+cellN(x.open)+cellN(x.prov)+cellN(x.util)+cellN(x.adj)+cellN(x.end)+'</tr>').join('')
+     +'<tr class="total"><td>Total</td>'+cellN(R.prov.open)+cellN(R.prov.prov)+cellN(R.prov.util)+cellN(R.prov.adj)+cellN(R.prov.end)+'</tr></tbody></table>'; } }
+  if(dataTab==='ppe'){ if(!st.ppe) h+=none('PPE – Depreciation'); else { const P=R.ppe;
+    const line=(l,k,cls,f)=>'<tr class="'+(cls||'')+'"><td>'+l+'</td>'+P.g.map(x=>f?'<td class="n">'+f(x[k])+'</td>':cellN(x[k])).join('')+(k==='rate'?'<td></td>':cellN(P.tot[k]))+'</tr>';
+    h+='<h3>Depreciation computation (ZATCA asset groups)</h3><div class="scroll" style="max-height:none"><table><thead><tr><th>Description</th>'+P.g.map((x,i)=>'<th class="n" style="white-space:normal;max-width:150px" title="'+esc(x.name)+'">'+(i===0?'Land':'Group '+i)+'<div class="hint" style="font-weight:400">'+esc(x.name.length>38?x.name.slice(0,36)+'…':x.name)+'</div></th>').join('')+'<th class="n">Totals</th></tr></thead><tbody>'
+     +line('Ending balance as per prior year','open')+line("Current year's additions",'addCur')+line("Prior year's additions",'addPrior')+line("50% of current and prior year's additions <span class='formula'>(calculated)</span>",'halfAdd','sub')
+     +line("Current year's considerations",'consCur')+line("Prior year's considerations",'consPrior')+line("50% of current and prior year's considerations <span class='formula'>(calculated)</span>",'halfCons','sub')
+     +line("Ending balance for the current year <span class='formula'>= prior balance + 50% additions − 50% considerations</span>",'end','sub')+line('Depreciation rate','rate','',pct)
+     +line("Depreciation as per ZATCA rates <span class='formula'>= ending balance × rate</span>",'dep','sub')+line('Add: R&amp;M in excess of allowable 4%','rmDis')
+     +line("Ending balance carried forward to next year <span class='formula'>= ending balance − depreciation + excess R&amp;M</span>",'cf','total')+'</tbody></table></div>'
+     +'<h3>Depreciation summary</h3><table style="max-width:560px"><tbody><tr><td>Depreciation + amortization as per GL <span class="formula">(input)</span></td>'+cellN(P.gl)+'</tr><tr><td>Depreciation as per ZATCA</td>'+cellN(P.tot.dep)+'</tr><tr class="total"><td>Excess depreciation – disallowed / (allowed)</td>'+cellN(P.depDiff)+'</tr></tbody></table>'
+     +'<h3>Repair &amp; maintenance (4% limit)</h3><table><thead><tr><th>Group</th><th class="n">Group balance at year end</th><th class="n">Allowed (4%)</th><th class="n">Expense (input)</th><th class="n">Difference</th><th class="n">Disallowed</th></tr></thead><tbody>'
+     +P.g.slice(1).map((x,i)=>'<tr><td>Group '+(i+1)+' – '+esc(x.name)+'</td>'+cellN(x.base)+cellN(x.allowed)+cellN(x.rm)+cellN(x.rm-x.allowed)+cellN(x.rmDis)+'</tr>').join('')+'</tbody></table>'; } }
+  if(dataTab==='guar'){ if(!st.guar) h+=none('Normal Guarantee'); else { const G=R.guar;
+    h+='<div class="hint" style="margin-bottom:6px">Market value rate: <b>'+pct(G.marketRate)+'</b> · Guarantee fee = Principal ÷ 360 × Days × Fee rate · Market value = Principal ÷ 360 × Days × Market rate</div><div class="scroll" style="max-height:none"><table><thead><tr><th>Project</th><th>Bond</th><th>Related party</th><th class="n">Principal (SAR)</th><th>Start</th><th>End</th><th class="n">Days (360)</th><th class="n">Fee rate</th><th class="n">Guarantee fee</th><th class="n">Market value</th><th class="n">Disallowed expense</th></tr></thead><tbody>'
+     +G.items.map(x=>'<tr><td>'+esc(x.project)+'</td><td>'+esc(x.bond)+'</td><td>'+esc(x.party)+'</td>'+cellN(x.principal)+'<td>'+xlDate(x.start)+'</td><td>'+xlDate(x.end)+'</td><td class="n">'+x.days+'</td><td class="n">'+pct(x.rate)+'</td>'+cellN(x.fee)+cellN(x.mv)+cellN(x.dis)+'</tr>').join('')
+     +'<tr class="total"><td colspan="8">Total</td>'+cellN(G.fee)+cellN(G.mv)+cellN(G.dis)+'</tr></tbody></table></div><div class="hint" style="margin-top:6px">For reference: withholding tax 5% on total guarantee fee = '+fmt(G.wht)+'</div>'; } }
+  return h+'</div>';
+}
+
+function blockedView(title,missing){ return '<div class="card blocked"><h2>'+title+' cannot be calculated yet</h2><div class="hint" style="margin:8px 0">The following input'+(missing.length>1?'s are':' is')+' still needed:</div><ul style="display:inline-block;text-align:left;margin:0 0 14px">'+missing.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul><div><button class="primary noprint" data-tab="inputs">Go to Inputs</button></div></div>'; }
+function acctDetail(p,field,title){ if(!p.rows.length) return ''; const f=a=>typeof field==='function'?field(a):a[field];
+  return '<details><summary>Show accounts ('+p.rows.length+')</summary><table><thead><tr><th>Account</th><th>Code</th><th class="n">'+title+'</th></tr></thead><tbody>'+p.rows.map(a=>'<tr><td>'+esc(a.name)+'</td><td>'+esc(a.code)+'</td>'+cellN(f(a))+'</tr>').join('')+'</tbody></table></details>'; }
+
+function vCIT(R){
+  if(!R.citReady) return blockedView('Corporate Income Tax',R.missing);
+  const T=R.tb,C=R.cit,m=st.map; const y=' FY'+fy();
+  const r=(ref,label,src,amt,cls,det)=>'<tr class="'+(cls||'')+'"><td class="ref">'+ref+'</td><td>'+label+(det||'')+'</td><td class="formula">'+src+'</td>'+cellN(amt)+'</tr>';
+  const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
+  const detFor=a=>a.det==='entertainment'||a.det==='taxDues'?acctDetail(T[a.det],'ytdDr','Dr (YTD)'):'<details><summary>Where does this come from?</summary><div class="hint" style="margin:4px 0">See <button class="link" data-view="'+a.det+'">'+KIND_LABEL[a.det]+' table</button> in Source data.</div></details>';
+  return '<div class="card"><h2>Corporate Income Tax computation'+y+'</h2><div class="hint">'+esc(st.tb.company||'')+(st.tb.period?' · '+esc(st.tb.period):'')+' · All amounts in SAR</div>'
+   +'<div class="kpis"><div class="kpi"><div class="l">Net profit before tax</div><div class="v">'+fmt(T.netProfit)+'</div></div><div class="kpi"><div class="l">Taxable profit</div><div class="v">'+fmt(C.taxable)+'</div></div><div class="kpi"><div class="l">Income tax ('+pct(R.rate)+')</div><div class="v">'+fmt(C.tax)+'</div></div><div class="kpi"><div class="l">Due to ZATCA</div><div class="v">'+fmt(C.due)+'</div></div></div>'
+   +'<table><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
+   +sect('Step 1 · Net profit before tax (from Trial Balance)')
+   +r('I1',esc(m.revenue.label),'Cr (YTD) of '+esc(m.revenue.codes.join(', ')),T.revenue.amount)
+   +r('I2',esc(m.otherIncome.label),'Cr (YTD) of '+esc(m.otherIncome.codes.join(', ')),T.otherIncome.amount,'',acctDetail(T.otherIncome,'ytdCr','Cr (YTD)'))
+   +r('I','Total income','I1 + I2',T.income,'sub')
+   +r('E1',esc(m.cost.label),'Dr (YTD) of '+esc(m.cost.codes.join(', ')),T.cost.amount)
+   +r('E2',esc(m.ga.label),'Dr (YTD) of '+esc(m.ga.codes.join(', ')),T.ga.amount)
+   +r('E3',esc(m.nonOpExp.label),'Dr (YTD) of '+esc(m.nonOpExp.codes.join(', ')),T.nonOpExp.amount)
+   +r('E4',esc(m.interest.label),'Dr (YTD) of '+esc(m.interest.codes.join(', ')),T.interest.amount)
+   +r('E','Total expenses','E1 + E2 + E3 + E4',T.expense,'sub')
+   +r('NP','Net profit before tax','I − E',T.netProfit,'total')
+   +sect('Step 2 · Tax adjustments (disallowed expenses and timing differences)')
+   +C.adj.map(a=>r(a.ref,esc(a.label),esc(a.src)+(a.manual.length?' + manual adjustment':''),a.amt,'',a.det?detFor(a):'')+(a.manual.length?r('','↳ From uploaded data','',a.base,'manrow')+a.manual.map(m=>r('','↳ Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt,'manrow')).join(''):'')).join('')
+   +r('A','Total adjustments','Sum of lines A1 to A'+C.adj.length,C.totalAdj,'sub')
+   +sect('Step 3 · Taxable profit and income tax')
+   +r('TP','Taxable net adjusted profit','NP + A',C.taxable,'total')
+   +r('TAX','Corporate income tax for the year','TP × '+pct(R.rate),C.tax,'result')
+   +sect('Step 4 · Amount payable')
+   +r('P','Less: prepaid tax paid (advance payments)','Credits for the period of '+esc(m.prepaidTax.codes.join(', ')),C.prepaid,'',acctDetail(T.prepaidTax,'cr','Credits for the period'))
+   +r('DUE','Due to ZATCA','TAX − P',C.due,'result')
+   +'</tbody></table>'
+   +(T.bookedCIT.amount?'<div class="hint" style="margin-top:10px">For reference: corporate income tax expense currently booked in the trial balance is '+fmt(T.bookedCIT.amount)+'. The computation above is based on the uploaded data; the difference to adjust in the books is '+fmt(C.tax-T.bookedCIT.amount)+'.</div>':'')+'</div>';
+}
+
+function vDT(R){
+  if(!R.dtReady) return blockedView('Deferred Tax',R.dtMissing);
+  const D=R.dt, P=R.ppe, y=fy(), d=y?'31 December '+y:'year end', pd=y?'31 December '+(y-1):'prior year end';
+  const r=(ref,label,src,amt,cls)=>'<tr class="'+(cls||'')+'"><td class="ref">'+ref+'</td><td>'+label+'</td><td class="formula">'+src+'</td>'+(amt===undefined?'<td></td>':cellN(amt))+'</tr>';
+  const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
+  return '<div class="card"><h2>Computation of deferred tax as of '+d+'</h2><div class="hint">'+esc(st.tb&&st.tb.company||'')+' · Balance sheet approach · All amounts in SAR</div>'
+   +'<div class="kpis"><div class="kpi"><div class="l">Net deferred tax position (C)</div><div class="v">'+fmt(D.net)+'</div></div><div class="kpi"><div class="l">Prior year per audited FS (D)</div><div class="v">'+fmt(D.prior)+'</div></div><div class="kpi"><div class="l">Deferred tax credit / (charge) for the year (E)</div><div class="v">'+fmt(D.movement)+'</div></div></div>'
+   +'<table><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
+   +'<tr><td class="ref"></td><td>Non-Saudi shareholding percentage (income tax)</td><td class="formula">Tax settings</td><td class="n">'+pct(R.share)+'</td></tr>'
+   +'<tr><td class="ref"></td><td>Applicable tax rate</td><td class="formula">Tax settings</td><td class="n">'+pct(R.rate)+'</td></tr>'
+   +sect('Note 1 · Fixed asset difference')
+   +r('N1a','Tax base: ending balance carried forward (all groups)','PPE – Depreciation: "Ending balance carried forward" total',P.tot.cf)
+   +r('N1b','Add: 50% of current year additions','50% × '+fmt(P.tot.addCur),0.5*P.tot.addCur)
+   +r('N1c','Less: 50% of current year considerations','50% × '+fmt(P.tot.consCur),-0.5*P.tot.consCur)
+   +D.mFA.map(m=>r('N1m','Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt)).join('')
+   +r('N1d','Fixed assets as per the tax working','N1a + N1b + N1c'+(D.mFA.length?' + N1m':''),D.taxFA,'sub')
+   +r('N1e','Fixed assets as per the Financial statements','Key-in on the Inputs tab',D.fsFA)
+   +r('N1','Difference (tax base − financial statements)','N1d − N1e',D.diff,'sub')
+   +sect('Deferred tax liabilities as at '+d)
+   +r('L1','Fixed asset difference (Note 1)','− N1',D.dtlBase)
+   +r('A','Deferred tax liabilities (A)','L1 × '+pct(R.rate),D.dtl,'sub')
+   +sect('Deferred tax assets as at '+d)
+   +r('B1','Provisions (Note 2)','Provision Movement: total ending balance'+(D.mPv.length?' + manual adjustment':''),D.dtaBase)+(D.mPv.length?r('','↳ From uploaded data','',R.prov.end,'manrow')+D.mPv.map(m=>r('','↳ Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt,'manrow')).join(''):'')
+   +r('B','Deferred tax assets (B)','B1 × '+pct(R.rate),D.dta,'sub')
+   +sect('Net position and movement')
+   +r('C','Net deferred tax position as of '+d,'(B − A) × '+pct(R.share)+' shareholding',D.net,'total')
+   +r('D','Deferred tax as of '+pd+' as per audited FS','Key-in on the Inputs tab',D.prior)
+   +r('E','Deferred tax credit / (charge) during the year','C − D',D.movement,'result')
+   +'</tbody></table>'
+   +'<h3>Note 2 · Provisions</h3><table style="max-width:640px"><thead><tr><th>Provision</th><th class="n">Ending balance</th></tr></thead><tbody>'+R.prov.items.map(x=>'<tr><td>'+esc(x.name)+'</td>'+cellN(x.end)+'</tr>').join('')+'<tr class="total"><td>Total (B1)</td>'+cellN(R.prov.end)+'</tr></tbody></table>'
+   +'<div class="hint" style="margin-top:8px">The provision movement is based on all provisions disclosed in the Company books as confirmed by the Company. The impact of IFRS adjustments is already incorporated in the ending balance of provisions.</div>'
+   +(R.tb&&R.tb.bookedDT.amount?'<div class="hint" style="margin-top:8px">For reference: deferred tax currently booked in the trial balance is '+fmt(R.tb.bookedDT.amount)+' credit. The computation above is based on the uploaded data; the difference to adjust in the books is '+fmt(D.movement-R.tb.bookedDT.amount)+'.</div>':'')+'</div>';
+}
+
+function vNotices(ns){
+  const LV={err:'Missing',warn:'Review',info:'Info',ok:'Passed'}; const order=['err','warn','info','ok'];
+  const sorted=[...ns].sort((a,b)=>order.indexOf(a.lv)-order.indexOf(b.lv));
+  return '<div class="card"><h2>Notices</h2><div class="hint" style="margin-bottom:10px">Missing inputs, points that need your confirmation, and automatic cross-checks. The app never fills a missing value on its own.</div>'
+   +(sorted.length?sorted.map(n=>'<div class="notice '+n.lv+'"><b class="lv">'+LV[n.lv]+'</b><div><div>'+esc(n.msg)+'</div>'+(n.fix?'<div class="fix"><b>What to do:</b> '+esc(n.fix)+' '+(n.tab?'<button class="link noprint" data-tab="'+n.tab+'">Open</button>':'')+'</div>':'')+'</div></div>').join(''):'<div class="notice ok"><b class="lv">Passed</b><div>No notices.</div></div>')+'</div>';
+}
+
+function vHistory(){
+  const rows=App.years.map(y=>{ const s=y===App.year?st:App.hist[y]; if(!s) return ''; const R=compute(s); const v=x=>x==null?'<td class="n">–</td>':cellN(x);
+    return '<tr class="'+(y===App.year?'used':'')+'"><td><b>FY'+y+'</b>'+(y===App.year?' <span class="tag use">open now</span>':'')+'</td><td>'+(s.final?'<span class="tag use">Final</span>':(R.citReady&&R.dtReady?'In progress – all inputs provided':'In progress – inputs missing'))+'</td>'
+      +v(R.tb?R.tb.netProfit:null)+v(R.cit?R.cit.taxable:null)+v(R.cit?R.cit.tax:null)+v(R.cit?R.cit.due:null)+v(R.dt?R.dt.net:null)+v(R.dt?R.dt.movement:null)+'<td>'+esc(when(s.savedAt))+'</td><td class="noprint">'+(y===App.year?'':'<button data-open="'+y+'">Open</button>')+'</td></tr>'; }).join('');
+  return '<div class="card"><h2>History – all fiscal years</h2><div class="hint" style="margin-bottom:10px">'+(App.store.kind==='folder'?'Saved in the shared folder "'+esc(App.store.name)+'" – everyone who connects the same folder sees the same years. Each year has its own folder (FY2025, FY2026, …) with the data and a copy of the uploaded Excel files in "source".':'Saved in this browser only. Connect the shared folder (top right) so the whole team can see these years.')+'</div>'
+   +(rows?'<div class="scroll" style="max-height:none"><table><thead><tr><th>Fiscal year</th><th>Status</th><th class="n">Net profit before tax</th><th class="n">Taxable profit</th><th class="n">Income tax</th><th class="n">Due to ZATCA</th><th class="n">Net deferred tax</th><th class="n">Deferred tax movement</th><th>Last saved</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="blocked"><b>No fiscal year has been saved yet.</b><div class="hint" style="margin:6px 0 12px">Start a year on the Inputs tab; it will appear here.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>')
+   +'<div class="noprint" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button id="btnNewYear">＋ New fiscal year</button>'+(App.year!=null?'<button id="btnExport" title="Download a backup copy of the open year">Download FY'+App.year+' data file</button><button id="btnImport" title="Replace the open year with a data file downloaded from this app">Import data file into FY'+App.year+'</button>':'')+'<input type="file" id="importFile" accept=".json" hidden></div></div>';
+}
+
+function vHelp(){
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
+   +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
+   +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
+   +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
+   +'<tr><td>2. PPE – Depreciation</td><td>Header row "Land … Totals" and row "Depreciation Rate"</td><td>Prior-year balance, current/prior additions, current/prior considerations, rates, "Depreciation + Amortization as per GL", R&amp;M expense per group. All other rows are recalculated.</td></tr>'
+   +'<tr><td>3. Normal Guarantee</td><td>Header "Principal Amount in SAR"</td><td>Project, bond, principal, dates, days, fee rate and the market rate under "Market Value". Fee, market value and disallowed expense are recalculated; totals are exact sums. If the source carries a manual adjustment, key it in under "Manual adjustments" on the Inputs tab.</td></tr></tbody></table>'
+   +'<h3>Formulas</h3><ul><li>Net profit = total income − total expenses (trial balance YTD).</li><li>Taxable profit = net profit + guarantee fee above market value + entertainment + tax &amp; dues + provisions made − provisions utilized + (depreciation per GL − depreciation per ZATCA rates).</li><li>Income tax = taxable profit × tax rate. Due to ZATCA = income tax − prepaid tax paid.</li><li>Deferred tax: (provisions ending balance × rate − [−(tax base of fixed assets − fixed assets per FS)] × rate) × non-Saudi shareholding, less the prior-year balance.</li></ul>'
+   +'<h3>Where the data is kept</h3><p>Nothing is sent to the internet. Data is written only to the shared folder you connect (or, before a folder is connected, to this browser). Data saved in the browser before connecting a folder stays in the browser – move it with <b>Download data file</b> / <b>Import data file</b> on the History tab. Old .xls files must be re-saved as .xlsx. Connecting a shared folder needs Chrome or Edge on a computer.</p></div>';
+}
+
+function setKey(el){
+  const key=el.dataset.key, err=document.getElementById('e-'+key); let v=parseNum(el.value);
+  if(Number.isNaN(v)){ el.classList.add('bad'); el.setAttribute('aria-invalid','true'); err.textContent='Enter a number, e.g. 3,112,612.39'; return; }
+  if(el.dataset.pct){ if(v===''){ el.classList.add('bad'); err.textContent='This percentage is required.'; return; } if(!/%$/.test(el.value.trim())) v=v/100; if(v<0||v>1){ el.classList.add('bad'); err.textContent='Enter a percentage between 0 and 100.'; return; } }
+  if(key==='fsFA'&&v!==''&&v<0){ el.classList.add('bad'); err.textContent='Fixed assets cannot be negative.'; return; }
+  el.classList.remove('bad'); el.removeAttribute('aria-invalid'); err.textContent='';
+  if(st.keyins[key]!==v){ st.keyins[key]=v; save(); render(); }
+}
+async function switchYear(y){ await saveQ; await openYear(y); render(); window.scrollTo(0,0); }
+function newYear(){ saveQ.then(()=>{ App.year=null; st=blank(); App.conflict=false; undoSnap=null; tab='inputs'; render(); const el=document.getElementById('newYear'); if(el) el.focus(); }); }
+function bind(){
+  const $=id=>document.getElementById(id);
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>go(b.dataset.tab));
+  document.querySelectorAll('[data-dtab]').forEach(b=>b.onclick=()=>{dataTab=b.dataset.dtab; render();});
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{dataTab=b.dataset.view; go('data');});
+  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>switchYear(+b.dataset.open));
+  document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ const k=b.dataset.remove; snapshot(); st[k]=null; delete st.src[k]; save(); render(); toast(KIND_LABEL[k]+' removed.',true); });
+  document.querySelectorAll('[data-key]').forEach(el=>{ el.onchange=()=>setKey(el); el.onkeydown=e=>{ if(e.key==='Enter') el.blur(); }; });
+  document.querySelectorAll('[data-map]').forEach(el=>el.onchange=()=>{ const codes=el.value.split(',').map(s=>s.trim()).filter(Boolean); snapshot(); st.map[el.dataset.map].codes=codes; mapOpen=true; save(); render(); toast('Account mapping updated.',true); });
+  const md=$('mapDetails'); if(md) md.ontoggle=()=>{mapOpen=md.open;};
+  if($('mapReset')) $('mapReset').onclick=()=>{ snapshot(); st.map=JSON.parse(JSON.stringify(DEFAULT_MAP)); mapOpen=true; save(); render(); toast('Default account codes restored.',true); };
+  if($('guarNA')) $('guarNA').onchange=()=>{ st.guarNA=$('guarNA').checked; save(); render(); };
+  if($('btnAddMan')){ const addMan=()=>{ const d=$('manDesc').value.trim(), v=parseNum($('manAmt').value), e=$('e-man'); $('manDesc').classList.remove('bad'); $('manAmt').classList.remove('bad');
+      if(!d){ $('manDesc').classList.add('bad'); e.textContent='Type the reason for the adjustment.'; return $('manDesc').focus(); }
+      if(v===''||Number.isNaN(v)||v===0){ $('manAmt').classList.add('bad'); e.textContent='Enter the amount as a number other than 0, e.g. -0.03'; return $('manAmt').focus(); }
+      snapshot(); (st.manual||(st.manual=[])).push({target:$('manTarget').value,desc:d,amt:v}); save(); render(); toast('Manual adjustment added.',true); };
+    $('btnAddMan').onclick=addMan; $('manAmt').onkeydown=e=>{ if(e.key==='Enter') addMan(); }; }
+  document.querySelectorAll('[data-rmman]').forEach(b=>b.onclick=()=>{ snapshot(); st.manual.splice(+b.dataset.rmman,1); save(); render(); toast('Manual adjustment removed.',true); });
+  if($('btnUsePrior')) $('btnUsePrior').onclick=()=>{ snapshot(); st.keyins.priorDT=+$('btnUsePrior').dataset.v; save(); render(); toast('Prior-year deferred tax filled from FY'+(App.year-1)+'.',true); };
+  const fi=$('fileIn'), dz=$('drop');
+  if($('btnBrowse')) $('btnBrowse').onclick=()=>fi.click(); if(fi) fi.onchange=()=>{ if(fi.files.length) handleFiles([...fi.files]); };
+  if(dz){ dz.ondragover=e=>{e.preventDefault(); dz.classList.add('over');}; dz.ondragleave=()=>dz.classList.remove('over'); dz.ondrop=e=>{e.preventDefault(); dz.classList.remove('over'); handleFiles([...e.dataTransfer.files]);}; }
+  if($('tbFilter')) $('tbFilter').oninput=()=>{tbFilter=$('tbFilter').value; render();};
+  if($('tbUsed')) $('tbUsed').onchange=()=>{tbUsedOnly=$('tbUsed').checked; render();};
+  if($('btnStartYear')){ const start=()=>{ const el=$('newYear'), y=+el.value.trim();
+      if(!/^\d{4}$/.test(el.value.trim())||y<2000||y>2100){ el.classList.add('bad'); $('e-newYear').textContent='Enter a 4-digit year, e.g. 2025.'; return; }
+      if(App.years.includes(y)){ toast('FY'+y+' already exists – it has been opened.'); return switchYear(y); }
+      App.year=y; st=blank(); App.loadedAt=null; save(); render(); toast('FY'+y+' started. Upload the files below.'); };
+    $('btnStartYear').onclick=start; $('newYear').onkeydown=e=>{ if(e.key==='Enter') start(); }; }
+  if($('btnNewYear')) $('btnNewYear').onclick=newYear;
+  if($('btnReload')) $('btnReload').onclick=()=>switchYear(App.year);
+  if($('btnFinal')) $('btnFinal').onclick=()=>confirmBox('Mark FY'+App.year+' as final?','The year becomes read-only for everyone. It can be unlocked later if a correction is needed.','Mark as final',()=>{ st.final=true; save(); render(); toast('FY'+App.year+' is now final.'); });
+  if($('btnUnlock')) $('btnUnlock').onclick=()=>confirmBox('Unlock FY'+App.year+'?','The year becomes editable again. Changes are saved for everyone.','Unlock',()=>{ st.final=false; save(); render(); });
+  if($('btnReset')) $('btnReset').onclick=()=>confirmBox('Clear FY'+App.year+' inputs?','This removes all uploaded data and key-in values of FY'+App.year+' for everyone. Other years are not affected. You can undo right after.','Clear inputs',()=>{ snapshot(); st=blank(); save(); render(); toast('FY'+App.year+' inputs were cleared.',true); });
+  if($('btnExport')) $('btnExport').onclick=()=>{ const blob=new Blob([JSON.stringify({app:'sgc-cit',version:2,year:App.year,state:st},null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='SGC_Arabia_CIT_FY'+App.year+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('Data file saved to your Downloads folder.'); };
+  if($('btnImport')) $('btnImport').onclick=()=>{ if(st.final) return toast('FY'+App.year+' is final. Unlock it before importing.'); $('importFile').click(); };
+  if($('importFile')) $('importFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
+    try{ const j=JSON.parse(await f.text()); if(j.app!=='sgc-cit'||!j.state||!j.state.keyins) throw 0;
+      const fyr=j.year||(j.state.tb&&j.state.tb.year); if(fyr&&fyr!==App.year) return toast('This data file is for FY'+fyr+', but FY'+App.year+' is open. Open or start FY'+fyr+' first, then import.');
+      snapshot(); const keep=st.savedAt; st=normalize(j.state); st.savedAt=keep; save(); render(); toast('Data file imported into FY'+App.year+'.',true); }
+    catch(x){ toast('This file is not a data file downloaded from this app. Choose a file named like SGC_Arabia_CIT_FY2025.json.'); } };
+}
+window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
+document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
+document.getElementById('btnPrint').onclick=()=>window.print();
+document.getElementById('btnFolder').onclick=()=>connectFolder(App.pending);
+document.getElementById('yearSel').onchange=e=>{ const v=e.target.value; if(v==='new') newYear(); else if(v) switchYear(+v); };
+window.__app={connect:connectFolder,state:()=>st,App};
+(async function init(){
+  try{ const h=window.showDirectoryPicker?await idb.get('dirHandle'):null;
+    if(h){ if(!h.queryPermission||(await h.queryPermission({mode:'readwrite'}))==='granted') App.store=folderStore(h); else App.pending=h; } }catch(e){}
+  try{ await loadAll(); if(App.years.length) await openYear(App.years[0]); }catch(e){ App.connectMsg='Saved data could not be read ('+(e&&e.message||e)+'). Reconnect the shared folder.'; }
+  render(); window.__ready=true;
+  if(App.pending) toast('Click "Reconnect shared folder" (top right) to load the team data.');
+})();
+</script>
+</body>
+</html>
