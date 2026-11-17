@@ -128,8 +128,24 @@ tr.hl-prec td.n{outline:2px solid var(--pc);outline-offset:-2px;color:var(--pc);
 .fbar .f1{display:flex;gap:8px;align-items:baseline}
 .fbar .nm{font-size:13px;white-space:nowrap;max-width:55%;overflow:hidden;text-overflow:ellipsis}
 .fbar .eq{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fbar .res{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;background:#fff3c4;box-shadow:inset 0 0 0 2px #1c2733;padding:0 7px;border-radius:3px}
-.fbar .f2{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:5px}
+.fbar .res{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;background:#fff3c4;box-shadow:inset 0 0 0 2px #1c2733;padding:0 7px;border-radius:4px}
+.fbar .f2{display:flex;flex-wrap:wrap;gap:4px 5px;margin-top:5px;align-items:center}
+.fop{font-weight:700;font-size:14px;color:var(--ink);padding:0 2px}
+.fitem.fx{background:#eef1f4;box-shadow:inset 0 0 0 1.5px #8fa3b3} .fitem.fx .tv{color:var(--ink)}
+.hltable td.n,[data-hl],.srctbl td.calc{cursor:pointer}
+#pin{display:none;position:fixed;z-index:18;width:400px;max-width:calc(100vw - 16px);background:#fff;border:1px solid #7d8d9a;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.28);font-size:13px;overflow:hidden}
+#pin.drag{box-shadow:0 16px 40px rgba(0,0,0,.38);user-select:none}
+#pin .ph{display:flex;gap:8px;align-items:center;background:var(--brand);color:#fff;padding:8px 8px 8px 10px;cursor:move;touch-action:none}
+#pin .ph .grip{opacity:.7} #pin .ph .pt{flex:1;min-width:0;line-height:1.3} #pin .ph b{color:#fff}
+#pin .ph button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);width:26px;height:26px;padding:0;border-radius:50%;font-size:12px;flex:none}
+#pin .pf{padding:8px 12px 2px;color:var(--muted);font-size:12px}
+#pin .pb{max-height:min(46vh,380px);overflow:auto;padding:4px 12px 2px}
+#pin table{width:100%;font-size:13px} #pin td{border:none;padding:4px 4px;vertical-align:top}
+#pin td.pop{width:22px;font-weight:700;font-size:15px;text-align:center;line-height:1.2}
+#pin td.pl{line-height:1.35} #pin td.pv{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600}
+#pin .chip{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px} #pin .chip.fx{background:#8fa3b3}
+#pin tr.pres td{border-top:2px solid var(--ink);font-weight:700;padding-top:7px;position:sticky;bottom:0;background:#fff3c4}
+#pin .pn{padding:6px 12px 9px;color:var(--muted);font-size:11px}
 .fitem{display:inline-flex;gap:7px;align-items:center;white-space:nowrap;border-radius:4px;padding:0 7px;background:color-mix(in srgb,var(--pc) 12%,#fff);box-shadow:inset 0 0 0 1.5px var(--pc)}
 .fitem .tv{font-variant-numeric:tabular-nums;font-weight:700;color:var(--pc)}
 #side .fbar{flex:none;padding:7px 18px 6px;border-top:none;border-bottom:1px solid var(--line);width:auto}
@@ -161,7 +177,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 .modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .maptable input{width:100%;text-align:left}
 @media print{
-  header .hbtns,nav,#toast,#side,.noprint,summary{display:none!important}
+  header .hbtns,nav,#toast,#side,#pin,.noprint,summary{display:none!important}
   body.split main{margin-right:0;display:block}
   body{background:#fff} main{max-width:none;padding:0}
   section[role=tabpanel]{display:none!important}
@@ -187,6 +203,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 <nav role="tablist" aria-label="Sections" id="nav"></nav>
 <main id="main"></main>
 <aside id="side" aria-label="Source data"></aside>
+<div id="pin" role="dialog" aria-label="Calculation"></div>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div>
   <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px"></h2><div id="modalBody"></div>
@@ -616,7 +633,7 @@ function renderHeader(){
   const b=document.getElementById('btnFolder'); b.style.display=window.showDirectoryPicker?'':'none'; b.textContent=App.pending?'Reconnect shared folder':App.store.kind==='folder'?'Change folder':'Connect shared folder';
 }
 function render(){
-  hlClear();
+  pinClose(); hlClear(true);
   const R=compute(st), notices=buildNotices(st,R,prevResult()); window.__R=R; window.__notices=notices;
   const nErr=notices.filter(n=>n.lv==='err').length, nWarn=notices.filter(n=>n.lv==='warn').length, nInfo=notices.filter(n=>n.lv==='info').length;
   const cl=checklist(R), done=cl.filter(c=>c.done).length;
@@ -685,8 +702,8 @@ function vInputs(R,cl,done){
    Every amount cell has data-cid (its address). Calculated cells also carry data-deps (the cells they are calculated from)
    and data-f (the formula in words), so pointing at them highlights their precedents like F2 in Excel.
    hl = Set of cell addresses to mark as "source of the report amount" (used by the split-screen source panel). */
-const hcell=(hl,key,v,o)=>{ o=o||{}; const on=hl&&hl.has(key), d=o.deps&&o.deps.length;
-  return '<td class="n'+(v<0?' neg':'')+(on?' srccell':'')+(d?' calc':'')+'" data-cid="'+esc(key)+'"'+(on?' data-ck="'+esc(key)+'"':'')+(d?' data-deps="'+esc(o.deps.join('|'))+'" data-f="'+esc(o.f||'')+'"':'')+'>'+(o.html!==undefined&&!on?o.html:fmt(v))+'</td>'; };
+const hcell=(hl,key,v,o)=>{ o=o||{}; if(o.calc) o.deps=o.calc.filter(t=>t[1][0]!=='#').map(t=>t[1]); const on=hl&&hl.has(key), d=o.deps&&o.deps.length;
+  return '<td class="n'+(v<0?' neg':'')+(on?' srccell':'')+(d?' calc':'')+'" data-cid="'+esc(key)+'"'+(on?' data-ck="'+esc(key)+'"':'')+(d?' data-deps="'+esc(o.deps.join('|'))+'" data-f="'+esc(o.f||'')+'"'+(o.calc?' data-calc="'+esc(encCalc(o.calc))+'"':''):'')+'>'+(o.html!==undefined&&!on?o.html:fmt(v))+'</td>'; };
 const TB_FIELDS=[['opDr','Dr (Op bal)'],['opCr','Cr (Op bal)'],['dr','Debits'],['cr','Credits'],['ytdDr','Dr (YTD)'],['ytdCr','Cr (YTD)']];
 /* Which accounts add up to a total account: taken from the numbers only (the rows directly below whose net YTD balance adds up exactly). */
 const tbGroupCache=new WeakMap();
@@ -710,13 +727,17 @@ function tblProv(R,hl){
   const K=['open','prov','util','adj','end'], n=R.prov.items.length;
   return '<table><thead><tr><th>Name</th><th class="n">Opening Balance</th><th class="n">Provided during the year</th><th class="n">Utilized during the year</th><th class="n">Adjustments / Reversals</th><th class="n">Ending Balance</th></tr></thead><tbody>'
    +R.prov.items.map((x,i)=>{ const rolls=Math.abs(x.open+x.prov-x.util+x.adj-x.end)<0.5;
-     return '<tr><td>'+esc(x.name)+'</td>'+K.map(k=>hcell(hl,'prov:'+i+':'+k,x[k],k==='end'&&rolls?{deps:['open','prov','util','adj'].map(c=>'prov:'+i+':'+c),f:'Opening + Provided − Utilized + Adjustments'}:null)).join('')+'</tr>'; }).join('')
+     return '<tr><td>'+esc(x.name)+'</td>'+K.map(k=>hcell(hl,'prov:'+i+':'+k,x[k],k==='end'&&rolls?{calc:[['+','prov:'+i+':open'],['+','prov:'+i+':prov'],['−','prov:'+i+':util'],['+','prov:'+i+':adj']],f:'Opening + Provided − Utilized + Adjustments'}:null)).join('')+'</tr>'; }).join('')
    +'<tr class="total"><td>Total</td>'+K.map(k=>hcell(hl,'prov:T:'+k,R.prov[k],{deps:R.prov.items.map((x,i)=>'prov:'+i+':'+k),f:'Sum of the '+n+' provisions above'})).join('')+'</tr></tbody></table>';
 }
 function tblPPE(R,hl,compact){ const P=R.ppe, n=P.g.length, idx=P.g.map((x,i)=>i);
-  const DEP={halfAdd:[['addCur','addPrior'],'50% × (Current year additions + Prior year additions)'],halfCons:[['consCur','consPrior'],'50% × (Current year considerations + Prior year considerations)'],
-    end:[['open','halfAdd','halfCons'],'Prior-year balance + 50% of additions − 50% of considerations'],dep:[['end','rate'],'Ending balance × Depreciation rate'],cf:[['end','dep','rmDis'],'Ending balance − Depreciation + Excess R&M']};
-  const cellOpt=(k,i)=>DEP[k]?{deps:DEP[k][0].map(c=>'ppe:'+c+':'+i),f:DEP[k][1]}:(k==='rmDis'&&i>0?{deps:['ppe:rmd:'+i],f:'Disallowed amount from the Repair & maintenance table below'}:null);
+  const C=(i,...t)=>t.map(x=>x[1][0]==='#'?x:[x[0],'ppe:'+x[1]+':'+i]);
+  const DEP={halfAdd:[i=>C(i,['+','addCur'],['+','addPrior'],['×','#Half (50%)','50%']),"(Current year's additions + Prior year's additions) × 50%"],
+    halfCons:[i=>C(i,['+','consCur'],['+','consPrior'],['×','#Half (50%)','50%']),"(Current year's considerations + Prior year's considerations) × 50%"],
+    end:[i=>C(i,['+','open'],['+','halfAdd'],['−','halfCons']),'Prior-year balance + 50% of additions − 50% of considerations'],
+    dep:[i=>C(i,['+','end'],['×','rate']),'Ending balance × Depreciation rate'],
+    cf:[i=>C(i,['+','end'],['−','dep'],['+','rmDis']),'Ending balance − Depreciation + Excess R&M']};
+  const cellOpt=(k,i)=>DEP[k]?{calc:DEP[k][0](i),f:DEP[k][1]}:(k==='rmDis'&&i>0?{deps:['ppe:rmd:'+i],f:'Disallowed amount from the Repair & maintenance table below'}:null);
   const line=(l,k,cls)=>'<tr class="'+(cls||'')+'"><td>'+l+'</td>'+P.g.map((x,i)=>k==='rate'?'<td class="n" data-cid="ppe:rate:'+i+'">'+pct(x.rate)+'</td>':hcell(hl,'ppe:'+k+':'+i,x[k],cellOpt(k,i))).join('')+(k==='rate'?'<td></td>':hcell(hl,'ppe:'+k+':T',P.tot[k],{deps:idx.map(i=>'ppe:'+k+':'+i),f:'Sum of Land and Groups 1 to '+(n-1)}))+'</tr>';
   return '<h3>Depreciation computation (ZATCA asset groups)</h3><div class="xscroll"><table><thead><tr><th>Description</th>'+P.g.map((x,i)=>'<th class="n" style="white-space:normal;max-width:150px" title="'+esc(x.name)+'">'+(i===0?'Land':'Group '+i)+(compact?'':'<div class="hint" style="font-weight:400">'+esc(x.name.length>38?x.name.slice(0,36)+'…':x.name)+'</div>')+'</th>').join('')+'<th class="n">Totals</th></tr></thead><tbody>'
    +line('Ending balance as per prior year','open')+line("Current year's additions",'addCur')+line("Prior year's additions",'addPrior')+line("50% of current and prior year's additions",'halfAdd','sub')
@@ -724,19 +745,19 @@ function tblPPE(R,hl,compact){ const P=R.ppe, n=P.g.length, idx=P.g.map((x,i)=>i
    +line('Ending balance for the current year','end','sub')+line('Depreciation rate','rate')
    +line('Depreciation as per ZATCA rates','dep','sub')+line('Add: R&amp;M in excess of allowable 4%','rmDis')
    +line('Ending balance carried forward to next year','cf','total')+'</tbody></table></div>'
-   +'<h3>Depreciation summary</h3><table class="narrow"><tbody><tr><td>Depreciation + amortization as per GL (input)</td>'+hcell(hl,'ppe:gl',P.gl)+'</tr><tr><td>Depreciation as per ZATCA</td>'+hcell(hl,'ppe:depZ',P.tot.dep,{deps:['ppe:dep:T'],f:'Total of "Depreciation as per ZATCA rates" in the table above'})+'</tr><tr class="total"><td>Excess depreciation – disallowed / (allowed)</td>'+hcell(hl,'ppe:depDiff',P.depDiff,{deps:['ppe:gl','ppe:depZ'],f:'Depreciation as per GL − Depreciation as per ZATCA'})+'</tr></tbody></table>'
+   +'<h3>Depreciation summary</h3><table class="narrow"><tbody><tr><td>Depreciation + amortization as per GL (input)</td>'+hcell(hl,'ppe:gl',P.gl)+'</tr><tr><td>Depreciation as per ZATCA</td>'+hcell(hl,'ppe:depZ',P.tot.dep,{deps:['ppe:dep:T'],f:'Total of "Depreciation as per ZATCA rates" in the table above'})+'</tr><tr class="total"><td>Excess depreciation – disallowed / (allowed)</td>'+hcell(hl,'ppe:depDiff',P.depDiff,{calc:[['+','ppe:gl'],['−','ppe:depZ']],f:'Depreciation as per GL − Depreciation as per ZATCA'})+'</tr></tbody></table>'
    +'<h3>Repair &amp; maintenance (4% limit)</h3><div class="xscroll"><table><thead><tr><th>Group</th><th class="n">Group balance at year end</th><th class="n">Allowed (4%)</th><th class="n">Expense (input)</th><th class="n">Difference</th><th class="n">Disallowed</th></tr></thead><tbody>'
-   +P.g.slice(1).map((x,j)=>{ const i=j+1; return '<tr><td title="'+esc(x.name)+'">Group '+i+(compact?'':' – '+esc(x.name))+'</td>'+hcell(hl,'ppe:rmb:'+i,x.base,{deps:['ppe:end:'+i,'ppe:dep:'+i],f:'Ending balance for the current year − Depreciation as per ZATCA rates'})+hcell(hl,'ppe:rma:'+i,x.allowed,{deps:['ppe:rmb:'+i],f:'4% × Group balance at year end'})+hcell(hl,'ppe:rm:'+i,x.rm)+hcell(hl,'ppe:rmx:'+i,x.rm-x.allowed,{deps:['ppe:rm:'+i,'ppe:rma:'+i],f:'Expense − Allowed (4%)'})+hcell(hl,'ppe:rmd:'+i,x.rmDis,{deps:['ppe:rmx:'+i],f:'The difference when it is above zero, otherwise 0'})+'</tr>'; }).join('')+'</tbody></table></div>';
+   +P.g.slice(1).map((x,j)=>{ const i=j+1; return '<tr><td title="'+esc(x.name)+'">Group '+i+(compact?'':' – '+esc(x.name))+'</td>'+hcell(hl,'ppe:rmb:'+i,x.base,{calc:[['+','ppe:end:'+i],['−','ppe:dep:'+i]],f:'Ending balance for the current year − Depreciation as per ZATCA rates'})+hcell(hl,'ppe:rma:'+i,x.allowed,{calc:[['+','ppe:rmb:'+i],['×','#Allowed rate','4%']],f:'Group balance at year end × 4%'})+hcell(hl,'ppe:rm:'+i,x.rm)+hcell(hl,'ppe:rmx:'+i,x.rm-x.allowed,{calc:[['+','ppe:rm:'+i],['−','ppe:rma:'+i]],f:'Expense − Allowed (4%)'})+hcell(hl,'ppe:rmd:'+i,x.rmDis,{deps:['ppe:rmx:'+i],f:'The difference when it is above zero, otherwise 0'})+'</tr>'; }).join('')+'</tbody></table></div>';
 }
 function tblGuar(R,hl){ const G=R.guar, all=k=>G.items.map((x,i)=>'guar:'+i+':'+k), n=G.items.length;
   return '<div class="hint stickl" style="margin-bottom:6px">Market value rate: <b data-cid="guar:mr" data-label="Market value rate">'+pct(G.marketRate)+'</b></div><div class="xscroll"><table><thead><tr><th>Project</th><th>Bond</th><th>Related party</th><th class="n">Principal (SAR)</th><th>Start</th><th>End</th><th class="n">Days (360)</th><th class="n">Fee rate</th><th class="n">Guarantee fee</th><th class="n">Market value</th><th class="n">Disallowed expense</th></tr></thead><tbody>'
    +G.items.map((x,i)=>'<tr data-rl="'+esc(x.project+' – '+x.bond)+'"><td>'+esc(x.project)+'</td><td>'+esc(x.bond)+'</td><td>'+esc(x.party)+'</td><td class="n" data-cid="guar:'+i+':principal">'+fmt(x.principal)+'</td><td>'+xlDate(x.start)+'</td><td>'+xlDate(x.end)+'</td><td class="n" data-cid="guar:'+i+':days">'+x.days+'</td><td class="n" data-cid="guar:'+i+':rate">'+pct(x.rate)+'</td>'
-     +hcell(hl,'guar:'+i+':fee',x.fee,{deps:['guar:'+i+':principal','guar:'+i+':days','guar:'+i+':rate'],f:'Principal ÷ 360 × Days × Fee rate'})
-     +hcell(hl,'guar:'+i+':mv',x.mv,G.marketRate==null?null:{deps:['guar:'+i+':principal','guar:'+i+':days','guar:mr'],f:'Principal ÷ 360 × Days × Market value rate'})
-     +hcell(hl,'guar:'+i+':dis',x.dis,G.marketRate==null?null:{deps:['guar:'+i+':fee','guar:'+i+':mv'],f:'Guarantee fee − Market value'})+'</tr>').join('')
+     +hcell(hl,'guar:'+i+':fee',x.fee,{calc:[['+','guar:'+i+':principal'],['÷','#Days in a year','360'],['×','guar:'+i+':days'],['×','guar:'+i+':rate']],f:'Principal ÷ 360 × Days × Fee rate'})
+     +hcell(hl,'guar:'+i+':mv',x.mv,G.marketRate==null?null:{calc:[['+','guar:'+i+':principal'],['÷','#Days in a year','360'],['×','guar:'+i+':days'],['×','guar:mr']],f:'Principal ÷ 360 × Days × Market value rate'})
+     +hcell(hl,'guar:'+i+':dis',x.dis,G.marketRate==null?null:{calc:[['+','guar:'+i+':fee'],['−','guar:'+i+':mv']],f:'Guarantee fee − Market value'})+'</tr>').join('')
    +'<tr class="total" data-rl="Total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'+['fee','mv','dis'].map(k=>hcell(hl,'guar:T:'+k,G[k],{deps:all(k),f:'Sum of the '+n+' guarantees above'})).join('')+'</tr></tbody></table></div><div class="hint stickl" style="margin-top:6px">For reference: withholding tax 5% on total guarantee fee = '+fmt(G.wht)+'</div>';
 }
-const calcHint='<div class="hint noprint stickl" style="margin:8px 0">Tip: amounts with a <span class="calc">dotted underline</span> are calculated – point at one to highlight the cells it uses; the formula appears in the bar above the table.</div>';
+const calcHint='<div class="hint noprint stickl" style="margin:8px 0">Tip: amounts with a <span class="calc">dotted underline</span> are calculated – point at one to highlight the cells it uses; the calculation appears in the bar above the table. Click it to pin the calculation in a window you can drag.</div>';
 function vData(R){
   const btn=(id,l)=>'<button aria-pressed="'+(dataTab===id)+'" data-dtab="'+id+'">'+l+(st[id]?'':' (not provided)')+'</button>';
   let h='<div class="card srctbl"><h2>Source data</h2><div class="hint">The data you uploaded, shown as tables. Calculated columns are recomputed by the app from your inputs.</div><div class="subtabs" style="margin-top:10px">'+btn('tb','Trial Balance')+btn('prov','1. Provision Movement')+btn('ppe','2. PPE – Depreciation')+btn('guar','3. Normal Guarantee')+'</div>';
@@ -798,13 +819,13 @@ function sideGoto(i){
 }
 function closeSide(){ if(!side) return; const id=side.id; side=null; paintSide(); const r=document.querySelector('section[aria-labelledby="tab-'+tab+'"] [data-id="'+CSS.escape(id)+'"]'); if(r) r.focus({preventScroll:true}); }
 function openSource(row){
-  hlClear();
+  pinClose(); hlClear(true);
   if(row.dataset.srck==='input'){ go('inputs'); const f=document.getElementById(row.dataset.srcc); if(f){ f.scrollIntoView({block:'center'}); f.focus(); } return; }
   if(side&&side.id===row.dataset.id&&side.tab===tab) return closeSide();
   side={id:row.dataset.id,tab,kind:row.dataset.srck,cells:row.dataset.srcc.split('|'),only:false,idx:0}; paintSide();
 }
 document.addEventListener('click',e=>{ const t=e.target; if(!t.closest||t.closest('#side')) return; const row=t.closest('tr[data-srck]'); if(!row) return; if(t.closest('summary,details,a')||(t.closest('button')&&!t.closest('.srcbtn'))) return; openSource(row); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&side&&document.getElementById('modal').style.display!=='flex') closeSide(); else if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-srck]')) openSource(e.target); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&side&&!pinEl&&document.getElementById('modal').style.display!=='flex') closeSide(); else if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-srck]')) openSource(e.target); });
 
 function blockedView(title,missing){ return '<div class="card blocked"><h2>'+title+' cannot be calculated yet</h2><div class="hint" style="margin:8px 0">The following input'+(missing.length>1?'s are':' is')+' still needed:</div><ul style="display:inline-block;text-align:left;margin:0 0 14px">'+missing.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul><div><button class="primary noprint" data-tab="inputs">Go to Inputs</button></div></div>'; }
 function acctDetail(p,field,title){ if(!p.rows.length) return ''; const f=a=>typeof field==='function'?field(a):a[field];
@@ -812,15 +833,15 @@ function acctDetail(p,field,title){ if(!p.rows.length) return ''; const f=a=>typ
 
 /* Report row with Excel-F2-style precedents: data-id = this line, data-deps = the lines it is calculated from. */
 function hrow(o){
-  const id=o.id||o.ref||''; const deps=o.deps||[]; let src=o.src||'';
+  const id=o.id||o.ref||''; const deps=o.calc?o.calc.filter(t=>t[1][0]!=='#').map(t=>t[1]):(o.deps||[]); let src=o.src||'';
   deps.forEach(d=>{ if(d.includes('.')) return; const re=new RegExp('(^|[^A-Za-z0-9])('+d.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')(?![A-Za-z0-9])'); src=src.replace(re,'$1<span class="tok" data-tok="'+d+'">$2</span>'); });
   const lab=String(o.label).replace(/<[^>]*>/g,'');
   const val=o.valHtml!==undefined?o.valHtml:(o.amt===undefined?'<td></td>':cellN(o.amt));
   const sc=o.source&&(o.source.kind==='input'||st[o.source.kind])?o.source:null;
   if(sc) src+=' <button class="link srcbtn noprint" tabindex="-1">'+(sc.kind==='input'?'Go to key-in ▸':'View source ▸')+'</button>';
-  return '<tr class="'+(o.cls||'')+'"'+(id?' data-id="'+esc(id)+'" data-ref="'+esc(o.ref||'')+'" data-label="'+lab+'" tabindex="0"':'')+(deps.length?' data-deps="'+deps.join(',')+'"':'')+(sc?' data-srck="'+sc.kind+'" data-srcc="'+esc(sc.kind==='input'?sc.field:sc.cells.join('|'))+'" title="'+(sc.kind==='input'?'Click to go to this key-in on the Inputs tab':'Click to show the source data beside this report')+'"':'')+'><td class="ref">'+(o.ref||'')+'</td><td>'+o.label+'</td><td class="formula">'+src+'</td>'+val+'</tr>';
+  return '<tr class="'+(o.cls||'')+'"'+(id?' data-id="'+esc(id)+'" data-ref="'+esc(o.ref||'')+'" data-label="'+lab+'" tabindex="0"':'')+(deps.length?' data-deps="'+deps.join(',')+'"'+(o.calc?' data-calc="'+esc(encCalc(o.calc))+'"':''):'')+(sc?' data-srck="'+sc.kind+'" data-srcc="'+esc(sc.kind==='input'?sc.field:sc.cells.join('|'))+'" title="'+(sc.kind==='input'?'Click to go to this key-in on the Inputs tab':'Click to show the source data beside this report')+'"':'')+'><td class="ref">'+(o.ref||'')+'</td><td>'+o.label+'</td><td class="formula">'+src+'</td>'+val+'</tr>';
 }
-const hlHint='<div class="hint noprint" style="margin:6px 0 2px">Tip: <b>point</b> at a line to highlight the lines it is calculated from (like F2 in Excel); the formula and amounts appear in the bar under the tabs. <b>Click</b> a line that comes from source data to open that table beside the report with the source cells marked in yellow.</div>';
+const hlHint='<div class="hint noprint" style="margin:6px 0 2px">Tip: <b>point</b> at a line to highlight the lines it is calculated from (like F2 in Excel); the calculation appears in the bar under the tabs. <b>Click an amount</b> to pin its calculation in a window you can drag. <b>Click</b> a line that comes from source data to open that table beside the report with the source cells marked in yellow.</div>';
 const tbSrc=(key,f)=>({kind:'tb',cells:st.map[key].codes.map(c=>'tb:'+c+':'+f)});
 const keyIn=id=>({kind:'input',field:id});
 
@@ -849,16 +870,16 @@ function vCIT(R){
    +hrow({ref:'E3',label:esc(m.nonOpExp.label),src:'Dr (YTD) of '+esc(m.nonOpExp.codes.join(', ')),amt:T.nonOpExp.amount,source:tbSrc('nonOpExp','ytdDr')})
    +hrow({ref:'E4',label:esc(m.interest.label),src:'Dr (YTD) of '+esc(m.interest.codes.join(', ')),amt:T.interest.amount,source:tbSrc('interest','ytdDr')})
    +hrow({ref:'E',label:'Total expenses',src:'E1 + E2 + E3 + E4',amt:T.expense,cls:'sub',deps:['E1','E2','E3','E4']})
-   +hrow({ref:'NP',label:'Net profit before tax',src:'I − E',amt:T.netProfit,cls:'total',deps:['I','E']})
+   +hrow({ref:'NP',label:'Net profit before tax',src:'I − E',amt:T.netProfit,cls:'total',calc:[['+','I'],['−','E']]})
    +sect('Step 2 · Tax adjustments (disallowed expenses and timing differences)')
    +adjRows
    +hrow({ref:'A',label:'Total adjustments',src:C.adj.map(a=>a.ref).join(' + '),amt:C.totalAdj,cls:'sub',deps:C.adj.map(a=>a.ref)})
    +sect('Step 3 · Taxable profit and income tax')
    +hrow({ref:'TP',label:'Taxable net adjusted profit',src:'NP + A',amt:C.taxable,cls:'total',deps:['NP','A']})
-   +hrow({ref:'TAX',label:'Corporate income tax for the year',src:'TP × '+pct(R.rate)+' tax rate',amt:C.tax,cls:'result',deps:['TP']})
+   +hrow({ref:'TAX',label:'Corporate income tax for the year',src:'TP × '+pct(R.rate)+' tax rate',amt:C.tax,cls:'result',calc:[['+','TP'],['×','#Tax rate',pct(R.rate)]]})
    +sect('Step 4 · Amount payable')
    +hrow({ref:'P',label:'Less: prepaid tax paid (advance payments)',src:'Credits for the period of '+esc(m.prepaidTax.codes.join(', ')),amt:C.prepaid,source:tbSrc('prepaidTax','cr')})
-   +hrow({ref:'DUE',label:'Due to ZATCA',src:'TAX − P',amt:C.due,cls:'result',deps:['TAX','P']})
+   +hrow({ref:'DUE',label:'Due to ZATCA',src:'TAX − P',amt:C.due,cls:'result',calc:[['+','TAX'],['−','P']]})
    +'</tbody></table>'
    +(T.bookedCIT.amount?'<div class="hint" style="margin-top:10px">For reference: corporate income tax expense currently booked in the trial balance is '+fmt(T.bookedCIT.amount)+'. The computation above is based on the uploaded data; the difference to adjust in the books is '+fmt(C.tax-T.bookedCIT.amount)+'.</div>':'')+'</div>';
 }
@@ -881,21 +902,21 @@ function vDT(R){
    +D.mFA.map((x,j)=>hrow({id:mFAids[j],ref:'N1m',label:'Manual adjustment: '+esc(x.desc),src:'Key-in on the Inputs tab',amt:x.amt})).join('')
    +hrow({ref:'N1d',label:'Fixed assets as per the tax working',src:'N1a + N1b + N1c'+(D.mFA.length?' + N1m':''),amt:D.taxFA,cls:'sub',deps:['N1a','N1b','N1c',...mFAids]})
    +hrow({ref:'N1e',label:'Fixed assets as per the Financial statements',src:'Key-in on the Inputs tab',amt:D.fsFA,source:keyIn('k-fsFA')})
-   +hrow({ref:'N1',label:'Difference (tax base − financial statements)',src:'N1d − N1e',amt:D.diff,cls:'sub',deps:['N1d','N1e']})
+   +hrow({ref:'N1',label:'Difference (tax base − financial statements)',src:'N1d − N1e',amt:D.diff,cls:'sub',calc:[['+','N1d'],['−','N1e']]})
    +sect('Deferred tax liabilities as at '+d)
-   +hrow({ref:'L1',label:'Fixed asset difference (Note 1)',src:'− N1',amt:D.dtlBase,deps:['N1']})
-   +hrow({ref:'A',label:'Deferred tax liabilities (A)',src:'L1 × TR ('+pct(R.rate)+')',amt:D.dtl,cls:'sub',deps:['L1','TR']})
+   +hrow({ref:'L1',label:'Fixed asset difference (Note 1)',src:'− N1',amt:D.dtlBase,calc:[['−','N1']]})
+   +hrow({ref:'A',label:'Deferred tax liabilities (A)',src:'L1 × TR ('+pct(R.rate)+')',amt:D.dtl,cls:'sub',calc:[['+','L1'],['×','TR']]})
    +sect('Deferred tax assets as at '+d)
    +(D.mPv.length
      ?hrow({ref:'B1',label:'Provisions (Note 2)',src:'Note 2 total + manual adjustment',amt:D.dtaBase,deps:['B1.b',...mPvIds]})
        +hrow({id:'B1.b',label:'↳ From uploaded data',src:'Note 2 total (Provision Movement: ending balance)',amt:R.prov.end,cls:'manrow',deps:['N2.T'],source:{kind:'prov',cells:['prov:T:end']}})
        +D.mPv.map((x,j)=>hrow({id:mPvIds[j],label:'↳ Manual adjustment: '+esc(x.desc),src:'Key-in on the Inputs tab',amt:x.amt,cls:'manrow'})).join('')
      :hrow({ref:'B1',label:'Provisions (Note 2)',src:'Note 2 total (Provision Movement: ending balance)',amt:D.dtaBase,deps:['N2.T'],source:{kind:'prov',cells:['prov:T:end']}}))
-   +hrow({ref:'B',label:'Deferred tax assets (B)',src:'B1 × TR ('+pct(R.rate)+')',amt:D.dta,cls:'sub',deps:['B1','TR']})
+   +hrow({ref:'B',label:'Deferred tax assets (B)',src:'B1 × TR ('+pct(R.rate)+')',amt:D.dta,cls:'sub',calc:[['+','B1'],['×','TR']]})
    +sect('Net position and movement')
-   +hrow({ref:'C',label:'Net deferred tax position as of '+d,src:'(B − A) × SH ('+pct(R.share)+')',amt:D.net,cls:'total',deps:['B','A','SH']})
+   +hrow({ref:'C',label:'Net deferred tax position as of '+d,src:'(B − A) × SH ('+pct(R.share)+')',amt:D.net,cls:'total',calc:[['+','B'],['−','A'],['×','SH']]})
    +hrow({ref:'D',label:'Deferred tax as of '+pd+' as per audited FS',src:'Key-in on the Inputs tab',amt:D.prior,source:keyIn('k-priorDT')})
-   +hrow({ref:'E',label:'Deferred tax credit / (charge) during the year',src:'C − D',amt:D.movement,cls:'result',deps:['C','D']})
+   +hrow({ref:'E',label:'Deferred tax credit / (charge) during the year',src:'C − D',amt:D.movement,cls:'result',calc:[['+','C'],['−','D']]})
    +'</tbody></table>'
    +'<h3>Note 2 · Provisions</h3><table class="hltable" style="max-width:640px"><thead><tr><th>Provision</th><th class="n">Ending balance</th></tr></thead><tbody>'
    +R.prov.items.map((x,i)=>'<tr data-id="N2.'+i+'" data-ref="" data-label="'+esc(x.name)+'" tabindex="0" data-src="Provision Movement: ending balance" data-srck="prov" data-srcc="prov:'+i+':end" title="Click to show the source data beside this report"><td>'+esc(x.name)+'</td>'+cellN(x.end)+'</tr>').join('')
@@ -921,7 +942,7 @@ function vHistory(){
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a calculated amount to pin its calculation, laid out line by line down to the result, in a window you can drag around; click anywhere else (or press Esc) to close it. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
    +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
@@ -993,26 +1014,57 @@ function cellLabel(c){
   let row=(tr.dataset.rl||tr.cells[0].textContent||'').replace(/\s+/g,' ').trim(); if(row.length>46) row=row.slice(0,44)+'…';
   return '<b>'+esc(row)+'</b>'+(col?' · '+esc(col):'');
 }
-/* The explanation is shown in a fixed "formula bar" (like Excel's), never on top of the table:
-   #fbar under the tabs for the report / Source data tab, #sideF in the header of the split-screen source panel. */
-const FBAR_IDLE='<span class="idle">Point at an amount to see here how it is calculated.</span>';
-function hlClear(){ if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.querySelectorAll('.fbar').forEach(f=>f.innerHTML=FBAR_IDLE); hlRow=null; }
-function hlShow(row){
-  if(row===hlRow) return; hlClear(); hlRow=row; row.classList.add('hl-focus');
-  const isRow=row.tagName==='TR', scope=isRow?row.closest('section'):row.closest('.srctbl'), deps=(row.dataset.deps||'').split(isRow?',':'|').filter(Boolean), many=deps.length>8;
-  const val=r=>{ if(r.tagName!=='TR') return r.textContent.trim(); const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
-  const cut=(t,n)=>t.length>n?t.slice(0,n-1)+'…':t;
-  const name=(r,n)=>r.tagName==='TR'?(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(n?cut(r.dataset.label||'',n):r.dataset.label||''):cellLabel(r);
-  let list='', shown=0, found=0;
-  deps.forEach((d,i)=>{ const c=many?HL_COLORS[0]:HL_COLORS[i%HL_COLORS.length]; const el=scope.querySelector((isRow?'[data-id="':'[data-cid="')+CSS.escape(d)+'"]');
-    if(isRow) row.querySelectorAll('.tok[data-tok="'+CSS.escape(d)+'"]').forEach(t=>{t.classList.add('on'); t.style.setProperty('--pc',c);});
-    if(!el) return; found++; el.classList.add('hl-prec'); el.style.setProperty('--pc',c);
-    if(!many||shown<3){ shown++; list+='<span class="fitem" style="--pc:'+c+'"><span class="tl">'+name(el,28)+'</span><span class="tv">'+esc(val(el))+'</span></span>'; } });
-  if(found>shown) list+='<span class="fitem" style="--pc:'+HL_COLORS[0]+'"><span class="tl">… and '+(found-shown)+' more highlighted cells</span></span>';
-  const f=isRow?row.querySelector('.formula'):null; let src=isRow?(f?f.innerHTML:esc(row.dataset.src||'')):esc(row.dataset.f||''); src=src.replace(/<button[^>]*>.*?<\/button>/g,'');
-  const bar=document.getElementById(row.closest('#side')?'sideF':'fbar'); if(!bar) return;
-  bar.innerHTML='<div class="f1"><span class="nm">'+name(row)+'</span><span class="eq">'+(deps.length?'= '+src:'Input – '+(src||'source data'))+'</span><span class="res">'+esc(val(row))+'</span></div>'+(list?'<div class="f2">'+list+'</div>':'');
+/* A calculation is a list of terms: [operator, address] or [operator, '#label', value] for a fixed number (e.g. × 50%).
+   It is stored on the element as data-calc; the addresses alone are also in data-deps. */
+const encCalc=c=>c.map(t=>t.join('::')).join(';;');
+function calcTerms(row){
+  const isRow=row.tagName==='TR', scope=isRow?row.closest('section'):row.closest('.srctbl');
+  const raw=row.dataset.calc?row.dataset.calc.split(';;').map(t=>t.split('::')):(row.dataset.deps||'').split(isRow?',':'|').filter(Boolean).map(d=>['+',d]);
+  const nRef=raw.filter(t=>t[1][0]!=='#').length, many=nRef>8; let i=0;
+  return raw.map(t=>{ if(t[1][0]==='#') return {op:t[0],label:esc(t[1].slice(1)),val:t[2],fixed:true};
+    const color=many?HL_COLORS[0]:HL_COLORS[i%HL_COLORS.length]; i++;
+    return {op:t[0],id:t[1],color,el:scope.querySelector((isRow?'[data-id="':'[data-cid="')+CSS.escape(t[1])+'"]')}; });
 }
+const hlVal=r=>{ if(r.tagName!=='TR') return r.textContent.trim(); const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
+const hlCut=(t,n)=>t.length>n?t.slice(0,n-1)+'…':t;
+const hlName=(r,n)=>r.tagName==='TR'?(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(n?hlCut(r.dataset.label||'',n):r.dataset.label||''):cellLabel(r);
+function hlWords(row){ if(row.tagName!=='TR') return esc(row.dataset.f||''); const f=row.querySelector('.formula'); return (f?f.innerHTML:esc(row.dataset.src||'')).replace(/<button[^>]*>.*?<\/button>/g,''); }
+
+/* Hover: explanation in a fixed "formula bar" (never on top of the table). Click an amount: the calculation is pinned in a window that can be dragged. */
+const FBAR_IDLE='<span class="idle">Point at an amount to see here how it is calculated. Click a calculated amount to pin the calculation in a window you can move.</span>';
+let pinEl=null;
+function hlClear(force){ if(pinEl&&!force) return; if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.querySelectorAll('.fbar').forEach(f=>f.innerHTML=FBAR_IDLE); hlRow=null; }
+function hlShow(row){
+  if(row===hlRow) return; hlClear(true); hlRow=row; row.classList.add('hl-focus');
+  const terms=calcTerms(row), refs=terms.filter(t=>!t.fixed), many=refs.length>8; let eq='', shown=0;
+  terms.forEach((t,k)=>{ if(!t.fixed){ if(row.tagName==='TR') row.querySelectorAll('.tok[data-tok="'+CSS.escape(t.id)+'"]').forEach(x=>{x.classList.add('on'); x.style.setProperty('--pc',t.color);}); if(t.el){ t.el.classList.add('hl-prec'); t.el.style.setProperty('--pc',t.color); } }
+    if(many&&shown>=3) return; if(!t.fixed&&!t.el) return; shown++;
+    const op=(k===0&&t.op==='+')?'':'<span class="fop">'+t.op+'</span>';
+    eq+=op+(t.fixed?'<span class="fitem fx"><span class="tl">'+t.label+'</span><span class="tv">'+esc(t.val)+'</span></span>':'<span class="fitem" style="--pc:'+t.color+'"><span class="tl">'+hlName(t.el,26)+'</span><span class="tv">'+esc(hlVal(t.el))+'</span></span>'); });
+  if(many) eq+='<span class="fop">+</span><span class="fitem" style="--pc:'+HL_COLORS[0]+'"><span class="tl">… '+(refs.length-3)+' more highlighted cells</span></span>';
+  const bar=document.getElementById(row.closest('#side')?'sideF':'fbar'); if(!bar) return;
+  bar.innerHTML='<div class="f1"><span class="nm">'+hlName(row)+'</span><span class="eq">'+(terms.length?'= '+hlWords(row):'Input – '+(hlWords(row)||'source data'))+'</span></div>'
+   +'<div class="f2">'+eq+(terms.length?'<span class="fop">=</span>':'')+'<span class="res">'+esc(hlVal(row))+'</span></div>';
+}
+function pinShow(row){
+  pinEl=null; hlShow(row); hlRow=row; pinEl=row;
+  const terms=calcTerms(row), win=document.getElementById('pin');
+  const line=(op,chip,label,val,cls)=>'<tr class="'+(cls||'')+'"><td class="pop">'+op+'</td><td class="pl">'+chip+label+'</td><td class="pv">'+val+'</td></tr>';
+  const body=terms.filter(t=>t.fixed||t.el).map((t,k)=>line(k===0&&t.op==='+'?'':t.op,t.fixed?'<span class="chip fx"></span>':'<span class="chip" style="background:'+t.color+'"></span>',t.fixed?t.label:hlName(t.el),t.fixed?esc(t.val):'<span style="color:'+t.color+'">'+esc(hlVal(t.el))+'</span>')).join('');
+  win.innerHTML='<div class="ph" id="pinHead" title="Drag to move"><span class="grip" aria-hidden="true">⠿</span><span class="pt">'+hlName(row)+'</span><button id="pinClose" title="Close (Esc)" aria-label="Close calculation window">✕</button></div>'
+   +'<div class="pf">'+hlWords(row)+'</div><div class="pb"><table>'+body+line('=','',hlName(row),esc(hlVal(row)),'pres')+'</table></div><div class="pn">Drag the title to move this window. Click anywhere else to close it.</div>';
+  win.style.display='block';
+  const cells=row.tagName==='TR'?row.querySelectorAll('td.n'):[], a=(cells.length?cells[cells.length-1]:row).getBoundingClientRect(), w=win.offsetWidth, h=win.offsetHeight;
+  let left=a.left-w-14, top=a.top-24;
+  if(left<8){ left=a.right+14; if(left+w>window.innerWidth-8){ left=Math.max(8,Math.min(a.right-w,window.innerWidth-w-8)); top=a.bottom+8; } }
+  pinMove(left,top);
+  document.getElementById('pinClose').onclick=pinClose;
+  document.getElementById('pinHead').onpointerdown=e=>{ if(e.target.closest('button')) return; e.preventDefault(); const r=win.getBoundingClientRect(), dx=e.clientX-r.left, dy=e.clientY-r.top;
+    const mv=ev=>pinMove(ev.clientX-dx,ev.clientY-dy), up=()=>{ document.removeEventListener('pointermove',mv); document.removeEventListener('pointerup',up); win.classList.remove('drag'); };
+    win.classList.add('drag'); document.addEventListener('pointermove',mv); document.addEventListener('pointerup',up); };
+}
+function pinMove(left,top){ const win=document.getElementById('pin'); win.style.left=Math.max(8,Math.min(left,window.innerWidth-win.offsetWidth-8))+'px'; win.style.top=Math.max(8,Math.min(top,window.innerHeight-win.offsetHeight-8))+'px'; }
+function pinClose(){ if(!pinEl) return; pinEl=null; document.getElementById('pin').style.display='none'; hlClear(true); }
 function hlTarget(el){
   if(!el||!el.closest) return null;
   const c=el.closest('[data-cid][data-deps]'); if(c&&c.closest('.srctbl')) return c;
@@ -1020,9 +1072,21 @@ function hlTarget(el){
   const k=el.closest('[data-hl]'); if(k) return sec.querySelector('[data-id="'+CSS.escape(k.dataset.hl)+'"]');
   return el.closest('.hltable tr[data-id]');
 }
-document.addEventListener('mouseover',e=>{ if(e.target.closest&&e.target.closest('.fbar')) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
-document.addEventListener('focusin',e=>{ const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') hlClear(); });
+/* which calculation a click should pin: a calculated source cell, the amount of a calculated report line, or a summary box */
+function pinTarget(el){
+  if(!el||!el.closest) return null;
+  const c=el.closest('[data-cid][data-deps]'); if(c&&c.closest('.srctbl')) return c;
+  const sec=el.closest('section'); if(!sec) return null;
+  const k=el.closest('[data-hl]'); const row=k?sec.querySelector('[data-id="'+CSS.escape(k.dataset.hl)+'"]'):(el.closest('td.n')?el.closest('.hltable tr[data-id]'):null);
+  return row&&row.dataset.deps?row:null;
+}
+document.addEventListener('mouseover',e=>{ if(pinEl||(e.target.closest&&e.target.closest('.fbar'))) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
+document.addEventListener('focusin',e=>{ if(pinEl) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(pinEl){ pinClose(); e.stopImmediatePropagation(); } else hlClear(); } });
+document.addEventListener('click',e=>{ const t=e.target; if(!t.closest||t.closest('#pin')) return;
+  const p=pinTarget(t); if(p){ e.stopImmediatePropagation(); if(p===pinEl) pinClose(); else pinShow(p); return; }
+  if(pinEl) pinClose(); },true);
+window.addEventListener('resize',()=>{ if(pinEl){ const r=document.getElementById('pin').getBoundingClientRect(); pinMove(r.left,r.top); } });
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
 document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
 document.getElementById('btnPrint').onclick=()=>window.print();
