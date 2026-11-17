@@ -536,7 +536,7 @@ const te=new TextEncoder(), tdec=new TextDecoder();
 
 /* ---------- 6) State and helpers ---------- */
 const blank=()=>({tb:null,prov:null,ppe:null,guar:null,guarNA:false,final:false,savedAt:null,manual:[],src:{},keyins:{fsFA:'',priorDT:'',taxRate:0.2,share:1},map:JSON.parse(JSON.stringify(DEFAULT_MAP))});
-const App={auto:true,checkedAt:null,store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
+const App={auto:true,allowLocal:false,checkedAt:null,store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
 let st=blank(), tab='inputs', dataTab='tb', undoSnap=null, tbFilter='', tbUsedOnly=false, mapOpen=false;
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const mk=(y,m)=>m?Math.round((y+m/100)*100)/100:y, kY=k=>Math.floor(k), kM=k=>Math.round((k-Math.floor(k))*100);
@@ -656,7 +656,8 @@ async function connectFolder(handle){
 }
 
 async function handleFiles(fileList){
-  if(App.year==null){ toast('Choose the fiscal year first, then upload the files.'); return; }
+  if(App.store.kind==='local'&&window.showDirectoryPicker&&!App.allowLocal){ toast('Connect the shared folder first.'); return; }
+  if(App.year==null){ toast('Choose the period first, then upload the files.'); return; }
   if(st.final){ toast(''+lab(App.year)+' is marked as final. Unlock it on the Inputs tab before uploading.'); return; }
   const msgs=[]; let changed=false; const before=JSON.stringify(st);
   for(const f of fileList){
@@ -716,6 +717,16 @@ function render(){
   if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for '+lab(App.year)+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
   if(App.connectMsg) banner+='<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>';
   if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>'+lab(App.year)+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
+  /* Until the team's shared folder is connected nothing can be uploaded, so data never ends up in one person's browser by accident. */
+  const gate=App.store.kind==='local'&&window.showDirectoryPicker&&!App.allowLocal;
+  if(gate){ document.getElementById('main').innerHTML=(App.connectMsg?'<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>':'')
+     +'<div class="card blocked"><h2>'+(App.pending?'Reconnect the team\'s shared folder':'Connect the team\'s shared folder first')+'</h2>'
+     +'<div class="hint" style="max-width:640px;margin:8px auto 14px">All records (uploaded files, source data, Corporate Income Tax and Deferred Tax results) are kept in one shared folder, so everyone on the team sees the same data. '+(App.pending?'This browser needs your permission again to use the folder.':'This is done once on each computer.')+'</div>'
+     +'<button class="primary" id="btnGateConnect" style="font-size:15px;padding:9px 18px">'+(App.pending?'Reconnect shared folder':'Connect shared folder')+'</button>'
+     +(App.pending?'<div class="hint" style="margin-top:10px">Then choose <b>Edit files</b> / <b>Allow</b>.</div>':'<div class="hint" style="max-width:640px;margin:12px auto 0;text-align:left"><b>How:</b> in the folder window, type the network path in the <b>Folder:</b> box (for example <code>\\\\JKPC\\Corporate Income Tax</code>), click <b>Select Folder</b>, then <b>Edit files</b> / <b>Allow</b>. Do not pick a drive letter such as Z:.</div>')
+     +'<div style="margin-top:18px"><button class="link" id="btnLocalOnly">Work in this browser only (colleagues will NOT see the data)</button></div></div>'+(tab==='help'?vHelp():'');
+    document.getElementById('btnGateConnect').onclick=()=>connectFolder(App.pending); document.getElementById('btnLocalOnly').onclick=()=>{ App.allowLocal=true; render(); };
+    document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>go(b.dataset.tab)); paintSide(); return; }
   document.getElementById('main').innerHTML=banner+sec('inputs',App.year==null?vStart():vInputs(R,cl,done))+sec('data',App.year==null?noYear:vData(R))+sec('cit',App.year==null?noYear:vCIT(R))+sec('dt',App.year==null?noYear:vDT(R))+sec('notices',App.year==null?noYear:vNotices(notices))+sec('history',vHistory())+sec('help',vHelp());
   paintSide();
   if(keep){ const el=document.getElementById(keep); if(el&&el.tagName==='INPUT'){ el.focus(); try{ if(selS!=null) el.setSelectionRange(selS,selS); }catch(e){} } }

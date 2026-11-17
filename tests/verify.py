@@ -24,7 +24,12 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1300,'height':900}); pg=ctx.new_page(); errs=[]
     pg.on('pageerror',lambda e:errs.append(str(e))); pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
     pg.goto(url); pg.wait_for_function('window.__ready'); pg.evaluate('window.__app.App.auto=false')   # automatic refresh is tested explicitly below
-    print('== Start =='); check('asks for the fiscal year first',pg.locator('#newYear').count()==1)
+    print('== Start ==')
+    gated=pg.locator('#btnLocalOnly').count()==1
+    if gated:
+        check('first screen asks to connect the shared folder; nothing can be uploaded before that',pg.locator('#newYear').count()==0 and pg.locator('#fileIn').count()==0 and pg.locator('#btnGateConnect').count()==1)
+        pg.click('#btnLocalOnly')
+    check('asks for the period first',pg.locator('#newYear').count()==1)
     check('before connecting: top bar warns that data is not shared','NOT shared' in pg.inner_text('#storeInfo'))
     pg.fill('#newYear','2025'); pg.click('#btnStartYear'); pg.wait_for_selector('#fileIn',state='attached')
     check('6 missing-input notices before upload',pg.evaluate("window.__notices.filter(n=>n.lv==='err').length")==6)
@@ -215,6 +220,7 @@ with sync_playwright() as p:
     print('\n== Colleague who uploaded before connecting the shared folder ==')
     pg.select_option('#yearSel','new'); pg.fill('#newYear','2031'); pg.click('#btnStartYear'); pg.wait_for_selector('#fileIn',state='attached'); pg.wait_for_timeout(300)   # empty FY2031 in the shared folder
     pg3=ctx.new_page(); pg3.on('pageerror',lambda e:errs.append(str(e))); pg3.goto(url); pg3.wait_for_function('window.__ready'); pg3.evaluate('window.__app.App.auto=false')
+    if pg3.locator('#btnLocalOnly').count(): pg3.click('#btnLocalOnly')
     check('colleague not connected: sees the NOT shared warning on every tab',pg3.evaluate("window.__app.App.store.kind")=='local' and 'in this browser only' in pg3.inner_text('#main'))
     pg3.select_option('#yearSel','new'); pg3.fill('#newYear','2031'); pg3.click('#btnStartYear'); pg3.wait_for_selector('#fileIn',state='attached')
     pg3.fill('#k-fsFA','777'); pg3.press('#k-fsFA','Tab'); pg3.wait_for_timeout(300)
