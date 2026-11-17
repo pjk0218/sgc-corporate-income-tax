@@ -162,11 +162,20 @@ with sync_playwright() as p:
     check('FY2025/data.json and source copy written to the folder: '+str(files),'data.json' in files and any(f.startswith('source/') for f in files))
     pg2=ctx.new_page(); pg2.goto(url); pg2.wait_for_function('window.__ready'); pg2.evaluate(CONNECT); pg2.wait_for_function('window.__R && window.__R.cit')     # a colleague opens the app
     check('colleague sees FY2025 with the same tax',abs(pg2.evaluate("window.__R.cit?window.__R.cit.tax:0")-R['cit']['tax'])<0.005)
-    # colleague changes a key-in; first user's next change must not overwrite it silently
+    # two people change different parts of the same record at the same time: both changes must survive
     pg2.click('#tab-inputs'); pg2.fill('#k-fsFA','3112612.40'); pg2.press('#k-fsFA','Tab'); pg2.wait_for_timeout(400)
-    pg.click('#tab-inputs'); pg.fill('#k-priorDT','10931'); pg.press('#k-priorDT','Tab'); pg.wait_for_selector('#btnReload')
-    check('conflict detected instead of overwriting',True); pg.click('#btnReload'); pg.wait_for_timeout(300)
-    check('latest data loaded after conflict',pg.evaluate("window.__app.state().keyins.fsFA")==3112612.40)
+    pg.click('#tab-inputs'); pg.fill('#k-priorDT','10931'); pg.press('#k-priorDT','Tab'); pg.wait_for_function("window.__app.state().keyins.fsFA===3112612.40")
+    saved=pg.evaluate("(async()=>{const r=await navigator.storage.getDirectory(); const d=await r.getDirectoryHandle('FY2025'); const f=await (await d.getFileHandle('data.json')).getFile(); return JSON.parse(await f.text()).state.keyins;})()")
+    check('simultaneous edits are combined, nothing is dropped (colleague fsFA + my priorDT): '+str((saved['fsFA'],saved['priorDT'])),saved['fsFA']==3112612.40 and saved['priorDT']==10931 and pg.evaluate("window.__app.state().tb!==null"))
+    # a colleague who started the same new record separately and uploaded data: their upload must not be blocked by my empty record
+    pg.select_option('#yearSel','new'); pg.fill('#newYear','2040'); pg.click('#btnStartYear'); pg.wait_for_selector('#fileIn',state='attached'); pg.wait_for_timeout(300)
+    pg2.evaluate("(()=>{const A=window.__app.App; A.year=2040; A.loadedAt=null; A.base=null;})()")     # colleague began FY2040 before mine appeared on their screen
+    pg2.evaluate("window.__app.setState({keyins:{fsFA:4040}})"); pg2.wait_for_timeout(500)
+    pg.click('#btnRefresh'); pg.wait_for_function("window.__app.state().keyins.fsFA===4040")
+    check('colleague\'s data for a record I had only started empty is saved and shows on my screen',True)
+    pg.click('#tab-history'); pg.check('.hsel[data-y="2040"]'); pg.click('#btnDelYears'); pg.click('#modalOk'); pg.wait_for_function("window.__app.App.year===2025")
+    pg2.evaluate("window.__app.refresh(true)"); pg2.wait_for_function("window.__app.App.year===2025"); pg.click('#tab-inputs')
+    pg.fill('#k-priorDT',str(dt['B21'].value)); pg.press('#k-priorDT','Tab'); pg.wait_for_timeout(300)
     pg.fill('#k-fsFA',str(dt['B28'].value)); pg.press('#k-fsFA','Tab'); pg.wait_for_timeout(300)
     print('\n== Seeing what a colleague uploads ==')
     pg2.evaluate("window.__app.refresh(true)"); pg2.wait_for_timeout(400)

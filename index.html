@@ -547,7 +547,7 @@ const yearDir=k=>'FY'+kY(k)+(kM(k)?'-M'+String(kM(k)).padStart(2,'0'):'');
 function normalize(s){ const b=blank(); const o=Object.assign(b,s); o.keyins=Object.assign(blank().keyins,s.keyins||{}); delete o.keyins.guarRound; o.map=Object.assign(JSON.parse(JSON.stringify(DEFAULT_MAP)),s.map||{}); o.src=s.src||{}; o.manual=Array.isArray(s.manual)?s.manual:[]; return o; }
 async function readState(y){ const u=await App.store.read(yearDir(y)+'/data.json'); if(!u) return null; try{ const j=JSON.parse(tdec.decode(u)); if(j.app!=='sgc-cit'||!j.state) return null; return normalize(j.state); }catch(e){ return null; } }
 async function loadAll(){ const names=await App.store.list(''); App.years=names.map(n=>/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n)).filter(Boolean).map(m=>mk(+m[1],m[2]?+m[2]:0)).sort(kCmp); App.hist={}; for(const y of App.years){ const s=await readState(y); if(s) App.hist[y]=s; } App.years=App.years.filter(y=>App.hist[y]); }
-async function openYear(y){ const s=await readState(y); App.year=y; st=s||blank(); App.loadedAt=st.savedAt||null; App.conflict=false; undoSnap=null; side=null; if(s) App.hist[y]=s; }
+async function openYear(y){ const s=await readState(y); App.year=y; st=s||blank(); setLoaded(st); App.conflict=false; undoSnap=null; side=null; if(s) App.hist[y]=s; }
 /* Delete fiscal years from History. A copy (data + uploaded Excel files) is first put in the "_deleted" folder, so a mistake can be repaired by hand. */
 const histSel=new Set();
 async function deleteYears(ys){
@@ -575,15 +575,15 @@ async function doRefresh(manual){
   const typing=document.activeElement&&document.activeElement.tagName==='INPUT'&&document.activeElement.type==='text'&&document.activeElement.closest('main');
   let msg='', redraw=false;
   if(App.year!=null&&!years.includes(App.year)){
-    if(App.loadedAt){ msg=lab(App.year)+' was deleted by a colleague.'; App.year=null; st=blank(); side=null; undoSnap=null; App.loadedAt=null; App.conflict=false; if(years.length){ App.year=years[0]; st=hist[years[0]]; App.loadedAt=st.savedAt||null; } redraw=true; }
+    if(App.loadedAt){ msg=lab(App.year)+' was deleted by a colleague.'; App.year=null; st=blank(); side=null; undoSnap=null; setLoaded(blank()); App.conflict=false; if(years.length){ App.year=years[0]; st=hist[years[0]]; setLoaded(st); } redraw=true; }
     else { years.push(App.year); years.sort(kCmp); hist[App.year]=App.hist[App.year]; }   // started here, not saved yet
   } else if(App.year!=null&&(hist[App.year].savedAt||null)!==App.loadedAt){
     if(typing&&!manual){ hist[App.year]=App.hist[App.year]; }    // do not replace the data while someone is typing; picked up on the next round
-    else { st=JSON.parse(JSON.stringify(hist[App.year])); App.loadedAt=st.savedAt||null; App.conflict=false; undoSnap=null; msg=lab(App.year)+' was updated with data saved by a colleague.'; redraw=true; }
+    else { st=JSON.parse(JSON.stringify(hist[App.year])); setLoaded(st); App.conflict=false; undoSnap=null; msg=lab(App.year)+' was updated with data saved by a colleague.'; redraw=true; }
   } else if(App.year!=null) hist[App.year]=App.hist[App.year]||hist[App.year];
   const news=years.filter(y=>!App.years.includes(y));
   App.years=years; App.hist=hist;
-  if(App.year==null&&years.length&&!document.getElementById('newYear')){ App.year=years[0]; st=hist[years[0]]; App.loadedAt=st.savedAt||null; redraw=true; }
+  if(App.year==null&&years.length&&!document.getElementById('newYear')){ App.year=years[0]; st=hist[years[0]]; setLoaded(st); redraw=true; }
   if(news.length) msg+=(msg?' ':'')+'New in History: '+news.map(lab).join(', ')+'.';
   App.checkedAt=new Date();
   const changed=before!==JSON.stringify(years.map(y=>[y,(hist[y]||{}).savedAt||null]));
@@ -593,15 +593,33 @@ async function doRefresh(manual){
 let saveQ=Promise.resolve();
 function save(){ if(App.year==null) return saveQ; const y=App.year, snap=JSON.stringify(st); App.hist[y]=JSON.parse(snap);
   saveQ=saveQ.then(()=>doSave(y,snap)).catch(e=>{ App.savedMsg='NOT saved – '+(e&&e.message||e); renderHeader(); toast('Your change could not be saved: '+(e&&e.message||e)+' Check the shared folder connection.'); }); return saveQ; }
+/* Two people working on the same record: nobody's work is dropped. Each part (trial balance, provisions, PPE, guarantee, each key-in,
+   manual adjustments, account mapping, final flag) is taken from whoever changed it since it was loaded; if both changed the same part, the later save wins. */
+const setLoaded=state=>{ App.loadedAt=state.savedAt||null; App.base=JSON.stringify(state); };
+function mergeStates(base,mine,theirs){
+  const out=JSON.parse(JSON.stringify(theirs)), j=JSON.stringify, both=[];
+  const NAME={tb:'Trial Balance',prov:'Provision Movement',ppe:'PPE – Depreciation',guar:'Normal Guarantee',guarNA:'Guarantee "Not applicable"',final:'Final flag',manual:'Manual adjustments',map:'Account mapping',fsFA:'Fixed assets per FS',priorDT:'Prior-year deferred tax',taxRate:'Tax rate',share:'Shareholding'};
+  for(const k of ['tb','prov','ppe','guar','guarNA','final','manual','map']){ if(j(mine[k])===j(base[k])) continue;
+    if(j(theirs[k])!==j(base[k])&&j(theirs[k])!==j(mine[k])) both.push(NAME[k]);
+    out[k]=mine[k]; if(['tb','prov','ppe','guar'].includes(k)){ if(mine.src&&mine.src[k]) out.src[k]=mine.src[k]; else delete out.src[k]; } }
+  for(const k of Object.keys(mine.keyins)){ if(j(mine.keyins[k])===j(base.keyins[k])) continue;
+    if(j(theirs.keyins[k])!==j(base.keyins[k])&&j(theirs.keyins[k])!==j(mine.keyins[k])) both.push(NAME[k]||k);
+    out.keyins[k]=mine.keyins[k]; }
+  return {state:out,both};
+}
 async function doSave(y,snap){
-  if(App.conflict) return;
-  const cur=await readState(y);
-  if(cur&&App.year===y&&(cur.savedAt||null)!==App.loadedAt){ App.conflict=true; render(); return; }
-  const s=JSON.parse(snap); s.savedAt=new Date().toISOString();
+  const cur=await readState(y); let s=JSON.parse(snap), note='';
+  if(cur&&App.year===y&&(cur.savedAt||null)!==App.loadedAt){       // a colleague saved this record after I loaded it: combine instead of overwriting
+    const base=App.base?JSON.parse(App.base):blank(), m=mergeStates(base,s,cur); s=m.state;
+    const keep=st.savedAt; st=mergeStates(base,st,cur).state; st.savedAt=keep;
+    note=lab(y)+': your change was combined with data a colleague saved'+(m.both.length?' (you both changed '+m.both.join(', ')+' – your version was kept)':'')+'.';
+  }
+  s.savedAt=new Date().toISOString();
   await App.store.write(yearDir(y)+'/data.json',te.encode(JSON.stringify({app:'sgc-cit',version:2,state:s},null,1)));
   App.hist[y]=s; if(!App.years.includes(y)){ App.years.push(y); App.years.sort(kCmp); }
-  if(App.year===y){ st.savedAt=s.savedAt; App.loadedAt=s.savedAt; }
-  App.savedMsg='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); renderHeader();
+  if(App.year===y){ st.savedAt=s.savedAt; setLoaded(s); }
+  App.savedMsg='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  if(note){ render(); toast(note); } else renderHeader();
 }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function fmt(v,d=2){ if(v==null||v==='') return '–'; const a=Math.abs(v); if(a<0.5*Math.pow(10,-d)) return (0).toFixed(d); const s=a.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); return v<0?'('+s+')':s; }
@@ -714,7 +732,6 @@ function render(){
   let banner='';
   if(App.pending) banner+='<div class="notice err noprint"><b class="lv">Not connected</b><div>The team\'s shared folder is not connected in this browser session, so you are <b>not seeing the data your colleagues saved</b> and your changes are not shared.<div class="fix"><button class="primary" id="btnReconnect">Reconnect shared folder</button> then choose <b>Edit files</b> / <b>Allow</b>.</div></div></div>';
   else banner+=folderHelp();
-  if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for '+lab(App.year)+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
   if(App.connectMsg) banner+='<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>';
   if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>'+lab(App.year)+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
   /* Until the team's shared folder is connected nothing can be uploaded, so data never ends up in one person's browser by accident. */
@@ -1071,7 +1088,7 @@ function bind(){
       if(!/^\d{4}$/.test(el.value.trim())||yy<2000||yy>2100){ el.classList.add('bad'); $('e-newYear').textContent='Enter a 4-digit year, e.g. 2026.'; return; }
       const y=mk(yy,+$('newPeriod').value);
       if(App.years.includes(y)){ toast(lab(y)+' already exists – it has been opened.'); return switchYear(y); }
-      App.year=y; st=blank(); App.loadedAt=null; save(); render(); toast(lab(y)+' started. Upload the files below.'); };
+      App.year=y; st=blank(); setLoaded(blank()); save(); render(); toast(lab(y)+' started. Upload the files below.'); };
     $('btnStartYear').onclick=start; $('newYear').onkeydown=e=>{ if(e.key==='Enter') start(); }; }
   if($('btnNewYear')) $('btnNewYear').onclick=newYear;
   if($('btnDelYears')){ const b=$('btnDelYears'), sync=()=>{ const n=[...histSel].filter(y=>App.years.includes(y)&&!(y===App.year?st:App.hist[y]||{}).final).length; b.disabled=!n; b.textContent=n?'Delete selected ('+n+')':'Delete selected'; };
@@ -1182,7 +1199,7 @@ const autoRefresh=()=>{ if(App.auto&&!App.pending&&App.store.kind==='folder'&&do
 setInterval(autoRefresh,20000); window.addEventListener('focus',autoRefresh); document.addEventListener('visibilitychange',autoRefresh);
 document.getElementById('btnFolder').onclick=()=>connectFolder(App.pending);
 document.getElementById('yearSel').onchange=e=>{ const v=e.target.value; if(v==='new') newYear(); else if(v) switchYear(+v); };
-window.__app={connect:connectFolder,refresh,state:()=>st,App};
+window.__app={connect:connectFolder,refresh,state:()=>st,App,setState:o=>{ if(o.keyins) Object.assign(st.keyins,o.keyins); save(); }};
 (async function init(){
   try{ const h=window.showDirectoryPicker?await idb.get('dirHandle'):null;
     if(h){ if(!h.queryPermission||(await h.queryPermission({mode:'readwrite'}))==='granted') App.store=folderStore(h); else App.pending=h; } }catch(e){}
