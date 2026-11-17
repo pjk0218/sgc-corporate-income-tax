@@ -65,21 +65,53 @@ tr.sect td{background:var(--brand);color:#fff;font-weight:600}
 tr.used td{background:#fffbea}
 /* split-screen source panel */
 .xscroll{overflow-x:auto}
-#side{display:none;position:fixed;top:0;right:0;bottom:0;width:50vw;background:#fff;border-left:3px solid var(--brand);box-shadow:-6px 0 18px rgba(0,0,0,.14);z-index:12;overflow:auto;padding:0 16px 28px}
-body.split #side{display:block}
+table.narrow{max-width:560px}
+td.calc{text-decoration:underline dotted #8fa3b3;text-underline-offset:3px;cursor:help}
+span.calc{text-decoration:underline dotted #8fa3b3;text-underline-offset:3px}
+tr.grp td{font-weight:600}
+#side{display:none;position:fixed;top:0;right:0;bottom:0;width:50vw;flex-direction:column;background:#fff;border-left:1px solid #b9c6d0;box-shadow:-8px 0 24px rgba(0,0,0,.16);z-index:12}
+body.split #side{display:flex}
 body.split main{margin-left:0;margin-right:50vw;max-width:none}
 body.split nav,body.split header{padding-right:calc(50vw + 8px)}
-#side .xscroll td:first-child,#side .xscroll th:first-child{position:sticky;left:0;z-index:1;background:#fff;max-width:200px;box-shadow:1px 0 0 var(--line)}
-#side .xscroll th:first-child{background:#f0f3f6} #side .xscroll tr.sub td:first-child{background:#fafbfc} #side .xscroll tr.total td:first-child{background:#f7f9fa}
-#side .where{margin-top:6px;font-size:13px} #side .where b{background:#fff3c4;padding:0 3px;border-radius:3px}
-#side .shead{position:sticky;top:0;background:#fff;padding:12px 0 10px;border-bottom:1px solid var(--line);margin-bottom:10px;z-index:2}
-#side th{position:static}
-td.srccell{background:#ffe066!important;outline:2px solid #b97f00;outline-offset:-2px;font-weight:700;color:var(--ink)}
-.srckey{background:#ffe066;outline:1px solid #b97f00;padding:0 4px;border-radius:3px}
+#side .shead{display:flex;gap:14px;align-items:center;background:var(--brand);color:#fff;padding:12px 14px 12px 18px}
+#side .shead .st{flex:1;min-width:0} #side .shead .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;opacity:.75}
+#side .shead .t{font-size:15px;line-height:1.3} #side .shead .amt{text-align:right;white-space:nowrap} #side .shead .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+#side .shead button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);width:32px;height:32px;padding:0;border-radius:50%;font-size:14px;flex:none}
+#side .shead button:hover{background:rgba(255,255,255,.18)}
+#side .smeta{padding:10px 18px;border-bottom:1px solid var(--line);background:#f7f9fa}
+#side .chips{display:flex;gap:6px;flex-wrap:wrap}
+#side .chip{font-size:12px;padding:2px 9px;border-radius:11px;background:#fff;border:1px solid var(--line);color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#side .chip.kind{background:var(--brand-soft);border-color:#b7d5da;color:var(--brand);font-weight:600}
+#side .where{margin-top:8px;font-size:13px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+#side .where .wk{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-left:6px} #side .where .wk:first-child{margin-left:0}
+#side .where b{background:#ffe9a8;padding:1px 6px;border-radius:4px;font-variant-numeric:tabular-nums}
+#side .where .nav{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;display:flex;gap:4px;align-items:center}
+#side .where .nav button{padding:1px 8px;font-size:11px}
+#side .sact{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap} #side .sact button{font-size:12px;padding:4px 10px}
+#side .sbody{flex:1;overflow:auto;padding-bottom:28px;background:#fff}
+#side .sbody .xscroll{overflow:visible}
+#side .sbody h3,#side .sbody .stickl{position:sticky;left:0;width:max-content;max-width:calc(50vw - 36px);padding:0 18px;margin:16px 0 6px;font-size:13px}
+#side .sbody .stickl{margin:10px 0 6px;font-size:12px}
+#side .sbody table{font-size:12px;border-collapse:separate;border-spacing:0;width:max-content;min-width:100%}
+#side .sbody table.narrow{max-width:none;min-width:0;position:sticky;left:0}
+#side .sbody th,#side .sbody td{padding:5px 10px;border-bottom:1px solid #e9eef2;white-space:nowrap}
+#side .sbody th{position:sticky;top:0;z-index:3;background:#e8eef2;color:#33434f;font-size:11.5px;border-bottom:1px solid #c5d0d9}
+#side .sbody td:first-child,#side .sbody th:first-child{position:sticky;left:0;z-index:2;background:#fff;padding-left:18px;max-width:230px;white-space:normal;box-shadow:1px 0 0 #dfe6ec}
+#side .sbody th:first-child{z-index:4;background:#e8eef2}
+#side .sbody tbody tr:nth-child(even) td{background:#f8fafb}
+#side .sbody tbody tr.sub td,#side .sbody tbody tr.grp td{background:#f1f5f8}
+#side .sbody tbody tr.total td{background:#e8eef2;border-top:1px solid #7d8d9a}
+#side .sbody tbody tr.srcrow td{background:#fff8dc}
+#side .sbody th.srccol{background:#ffe9a8;color:var(--ink)}
+td.srccell{background:#ffd84d!important;box-shadow:inset 0 0 0 2px #b97f00;font-weight:700;color:var(--ink)!important}
+.srckey{background:#ffd84d;box-shadow:inset 0 0 0 1px #b97f00;padding:0 5px;border-radius:3px;color:var(--ink)}
 tr[data-srck]{cursor:pointer}
 tr.src-open td{background:#fff3c4!important} tr.src-open td:first-child{box-shadow:inset 4px 0 0 #b97f00}
 .srcbtn{font-size:12px;white-space:nowrap;margin-left:4px}
-@media (max-width:900px){ body.split main{display:none} #side{width:100vw;border-left:none} body.split nav{padding-right:24px} }
+td.hl-focus,b.hl-focus{background:#fff3c4!important;box-shadow:inset 0 0 0 2px #1c2733!important}
+td.hl-prec,b.hl-prec{background:color-mix(in srgb,var(--pc) 14%,#fff)!important;box-shadow:inset 0 0 0 2px var(--pc)!important;color:var(--pc)!important;font-weight:700}
+b.hl-prec{padding:1px 5px;border-radius:3px}
+@media (max-width:900px){ body.split main{display:none} #side{width:100vw;border-left:none} body.split nav,body.split header{padding-right:24px} #side .sbody h3,#side .sbody .stickl{max-width:calc(100vw - 36px)} }
 /* precedent highlighting (F2-style) */
 .hltable tr[data-id]{cursor:default}
 .hltable tr[data-id]:focus{outline:none}
@@ -643,94 +675,126 @@ function vInputs(R,cl,done){
    +'<div class="card"><details '+(mapOpen?'open':'')+' id="mapDetails"><summary style="font-size:14px;font-weight:600;color:var(--ink)">Account mapping (advanced) – which trial balance codes feed each line</summary><div class="hint" style="margin:6px 0">Separate several codes with commas. Use the parent (total) account for income and expense lines. '+(lock?'':'<button class="link" id="mapReset">Restore default codes</button>')+'</div><table class="maptable"><thead><tr><th>Line</th><th>Amount used</th><th>Account code(s)</th><th>Found in trial balance</th></tr></thead><tbody>'+mapRows+'</tbody></table></details></div>';
 }
 
-/* Source tables. hl = Set of cell keys to mark as "source of the amount" (used by the split-screen source panel). */
-const hcell=(hl,key,v,html)=>{ const on=hl&&hl.has(key); return '<td class="n'+(v<0?' neg':'')+(on?' srccell':'')+'"'+(on?' data-ck="'+esc(key)+'"':'')+'>'+(html!==undefined&&!on?html:fmt(v))+'</td>'; };
+/* Source tables.
+   Every amount cell has data-cid (its address). Calculated cells also carry data-deps (the cells they are calculated from)
+   and data-f (the formula in words), so pointing at them highlights their precedents like F2 in Excel.
+   hl = Set of cell addresses to mark as "source of the report amount" (used by the split-screen source panel). */
+const hcell=(hl,key,v,o)=>{ o=o||{}; const on=hl&&hl.has(key), d=o.deps&&o.deps.length;
+  return '<td class="n'+(v<0?' neg':'')+(on?' srccell':'')+(d?' calc':'')+'" data-cid="'+esc(key)+'"'+(on?' data-ck="'+esc(key)+'"':'')+(d?' data-deps="'+esc(o.deps.join('|'))+'" data-f="'+esc(o.f||'')+'"':'')+'>'+(o.html!==undefined&&!on?o.html:fmt(v))+'</td>'; };
 const TB_FIELDS=[['opDr','Dr (Op bal)'],['opCr','Cr (Op bal)'],['dr','Debits'],['cr','Credits'],['ytdDr','Dr (YTD)'],['ytdCr','Cr (YTD)']];
-function tblTB(rows,fields,hl,used,grand){
-  const F=TB_FIELDS.filter(f=>fields.includes(f[0]));
+/* Which accounts add up to a total account: taken from the numbers only (the rows directly below whose net YTD balance adds up exactly). */
+const tbGroupCache=new WeakMap();
+function tbGroups(tb){ let g=tbGroupCache.get(tb); if(g) return g; g=new Map(); const A=tb.accts, net=a=>a.ytdDr-a.ytdCr, end=new Map();
+  for(let i=A.length-2;i>=0;i--){ const p=net(A[i]); if(Math.abs(p)<0.005) continue; let s=0, j=i+1, mem=[];
+    while(j<A.length&&mem.length<150){ const v=net(A[j]); s+=v; mem.push(A[j]); const last=end.has(j)?end.get(j):j;   // a sub-total counts once; its own detail rows are skipped
+      if(mem.length>1&&Math.abs(v)>=0.005&&Math.abs(s-p)<0.005){ g.set(A[i],mem); end.set(i,last); break; }
+      j=last+1; } }
+  tbGroupCache.set(tb,g); return g; }
+function tblTB(rows,fields,hl,used,grand,full){
+  const F=TB_FIELDS.filter(f=>fields.includes(f[0])), G=full?tbGroups(st.tb):new Map();
   return '<table><thead><tr><th>Particulars</th><th>Code</th>'+F.map(f=>'<th class="n">'+f[1]+'</th>').join('')+(used?'<th>Used for</th>':'')+'</tr></thead><tbody>'
-   +rows.map(a=>'<tr class="'+(used&&used[a.code]?'used':'')+'"><td style="padding-left:'+(8+a.indent*14)+'px">'+esc(a.name)+'</td><td>'+esc(a.code)+'</td>'+F.map(f=>hcell(hl,'tb:'+a.code+':'+f[0],a[f[0]],a[f[0]]?fmt(a[f[0]]):'')).join('')+(used?'<td>'+(used[a.code]?used[a.code].map(u=>'<span class="tag use">'+esc(u)+'</span>').join(' '):'')+'</td>':'')+'</tr>').join('')
+   +rows.map(a=>{ const kids=G.get(a); const mark=hl&&F.some(f=>hl.has('tb:'+a.code+':'+f[0]));
+     return '<tr class="'+(used&&used[a.code]?'used':'')+(kids?' grp':'')+(mark?' srcrow':'')+'"><td style="padding-left:'+(8+a.indent*14)+'px">'+esc(a.name)+'</td><td>'+esc(a.code)+'</td>'
+      +F.map(f=>{ const k=f[0], v=a[k]; const ok=kids&&v&&Math.abs(kids.reduce((x,c)=>x+c[k],0)-v)<0.005;
+        return hcell(hl,'tb:'+a.code+':'+k,v,{html:v?fmt(v):'',deps:ok?kids.filter(c=>c[k]).map(c=>'tb:'+c.code+':'+k):null,f:'Sum of the '+(kids?kids.length:0)+' accounts below it'}); }).join('')
+      +(used?'<td>'+(used[a.code]?used[a.code].map(u=>'<span class="tag use">'+esc(u)+'</span>').join(' '):'')+'</td>':'')+'</tr>'; }).join('')
    +(grand?'<tr class="total"><td>Grand Total</td><td></td>'+F.map(f=>cellN(grand[f[0]])).join('')+(used?'<td></td>':'')+'</tr>':'')+'</tbody></table>';
 }
 function tblProv(R,hl){
-  const K=['open','prov','util','adj','end'];
+  const K=['open','prov','util','adj','end'], n=R.prov.items.length;
   return '<table><thead><tr><th>Name</th><th class="n">Opening Balance</th><th class="n">Provided during the year</th><th class="n">Utilized during the year</th><th class="n">Adjustments / Reversals</th><th class="n">Ending Balance</th></tr></thead><tbody>'
-   +R.prov.items.map((x,i)=>'<tr><td>'+esc(x.name)+'</td>'+K.map(k=>hcell(hl,'prov:'+i+':'+k,x[k])).join('')+'</tr>').join('')
-   +'<tr class="total"><td>Total</td>'+K.map(k=>hcell(hl,'prov:T:'+k,R.prov[k])).join('')+'</tr></tbody></table>';
+   +R.prov.items.map((x,i)=>{ const rolls=Math.abs(x.open+x.prov-x.util+x.adj-x.end)<0.5;
+     return '<tr><td>'+esc(x.name)+'</td>'+K.map(k=>hcell(hl,'prov:'+i+':'+k,x[k],k==='end'&&rolls?{deps:['open','prov','util','adj'].map(c=>'prov:'+i+':'+c),f:'Opening + Provided − Utilized + Adjustments'}:null)).join('')+'</tr>'; }).join('')
+   +'<tr class="total"><td>Total</td>'+K.map(k=>hcell(hl,'prov:T:'+k,R.prov[k],{deps:R.prov.items.map((x,i)=>'prov:'+i+':'+k),f:'Sum of the '+n+' provisions above'})).join('')+'</tr></tbody></table>';
 }
-function tblPPE(R,hl){ const P=R.ppe;
-  const line=(l,k,cls,f)=>'<tr class="'+(cls||'')+'"><td>'+l+'</td>'+P.g.map((x,i)=>f?'<td class="n">'+f(x[k])+'</td>':hcell(hl,'ppe:'+k+':'+i,x[k])).join('')+(k==='rate'?'<td></td>':hcell(hl,'ppe:'+k+':T',P.tot[k]))+'</tr>';
-  return '<h3>Depreciation computation (ZATCA asset groups)</h3><div class="xscroll"><table><thead><tr><th>Description</th>'+P.g.map((x,i)=>'<th class="n" style="white-space:normal;max-width:150px" title="'+esc(x.name)+'">'+(i===0?'Land':'Group '+i)+'<div class="hint" style="font-weight:400">'+esc(x.name.length>38?x.name.slice(0,36)+'…':x.name)+'</div></th>').join('')+'<th class="n">Totals</th></tr></thead><tbody>'
-   +line('Ending balance as per prior year','open')+line("Current year's additions",'addCur')+line("Prior year's additions",'addPrior')+line("50% of current and prior year's additions <span class='formula'>(calculated)</span>",'halfAdd','sub')
-   +line("Current year's considerations",'consCur')+line("Prior year's considerations",'consPrior')+line("50% of current and prior year's considerations <span class='formula'>(calculated)</span>",'halfCons','sub')
-   +line("Ending balance for the current year <span class='formula'>= prior balance + 50% additions − 50% considerations</span>",'end','sub')+line('Depreciation rate','rate','',pct)
-   +line("Depreciation as per ZATCA rates <span class='formula'>= ending balance × rate</span>",'dep','sub')+line('Add: R&amp;M in excess of allowable 4%','rmDis')
-   +line("Ending balance carried forward to next year <span class='formula'>= ending balance − depreciation + excess R&amp;M</span>",'cf','total')+'</tbody></table></div>'
-   +'<h3>Depreciation summary</h3><table style="max-width:560px"><tbody><tr><td>Depreciation + amortization as per GL <span class="formula">(input)</span></td>'+hcell(hl,'ppe:gl',P.gl)+'</tr><tr><td>Depreciation as per ZATCA</td>'+hcell(hl,'ppe:depZ',P.tot.dep)+'</tr><tr class="total"><td>Excess depreciation – disallowed / (allowed)</td>'+hcell(hl,'ppe:depDiff',P.depDiff)+'</tr></tbody></table>'
+function tblPPE(R,hl,compact){ const P=R.ppe, n=P.g.length, idx=P.g.map((x,i)=>i);
+  const DEP={halfAdd:[['addCur','addPrior'],'50% × (Current year additions + Prior year additions)'],halfCons:[['consCur','consPrior'],'50% × (Current year considerations + Prior year considerations)'],
+    end:[['open','halfAdd','halfCons'],'Prior-year balance + 50% of additions − 50% of considerations'],dep:[['end','rate'],'Ending balance × Depreciation rate'],cf:[['end','dep','rmDis'],'Ending balance − Depreciation + Excess R&M']};
+  const cellOpt=(k,i)=>DEP[k]?{deps:DEP[k][0].map(c=>'ppe:'+c+':'+i),f:DEP[k][1]}:(k==='rmDis'&&i>0?{deps:['ppe:rmd:'+i],f:'Disallowed amount from the Repair & maintenance table below'}:null);
+  const line=(l,k,cls)=>'<tr class="'+(cls||'')+'"><td>'+l+'</td>'+P.g.map((x,i)=>k==='rate'?'<td class="n" data-cid="ppe:rate:'+i+'">'+pct(x.rate)+'</td>':hcell(hl,'ppe:'+k+':'+i,x[k],cellOpt(k,i))).join('')+(k==='rate'?'<td></td>':hcell(hl,'ppe:'+k+':T',P.tot[k],{deps:idx.map(i=>'ppe:'+k+':'+i),f:'Sum of Land and Groups 1 to '+(n-1)}))+'</tr>';
+  return '<h3>Depreciation computation (ZATCA asset groups)</h3><div class="xscroll"><table><thead><tr><th>Description</th>'+P.g.map((x,i)=>'<th class="n" style="white-space:normal;max-width:150px" title="'+esc(x.name)+'">'+(i===0?'Land':'Group '+i)+(compact?'':'<div class="hint" style="font-weight:400">'+esc(x.name.length>38?x.name.slice(0,36)+'…':x.name)+'</div>')+'</th>').join('')+'<th class="n">Totals</th></tr></thead><tbody>'
+   +line('Ending balance as per prior year','open')+line("Current year's additions",'addCur')+line("Prior year's additions",'addPrior')+line("50% of current and prior year's additions",'halfAdd','sub')
+   +line("Current year's considerations",'consCur')+line("Prior year's considerations",'consPrior')+line("50% of current and prior year's considerations",'halfCons','sub')
+   +line('Ending balance for the current year','end','sub')+line('Depreciation rate','rate')
+   +line('Depreciation as per ZATCA rates','dep','sub')+line('Add: R&amp;M in excess of allowable 4%','rmDis')
+   +line('Ending balance carried forward to next year','cf','total')+'</tbody></table></div>'
+   +'<h3>Depreciation summary</h3><table class="narrow"><tbody><tr><td>Depreciation + amortization as per GL (input)</td>'+hcell(hl,'ppe:gl',P.gl)+'</tr><tr><td>Depreciation as per ZATCA</td>'+hcell(hl,'ppe:depZ',P.tot.dep,{deps:['ppe:dep:T'],f:'Total of "Depreciation as per ZATCA rates" in the table above'})+'</tr><tr class="total"><td>Excess depreciation – disallowed / (allowed)</td>'+hcell(hl,'ppe:depDiff',P.depDiff,{deps:['ppe:gl','ppe:depZ'],f:'Depreciation as per GL − Depreciation as per ZATCA'})+'</tr></tbody></table>'
    +'<h3>Repair &amp; maintenance (4% limit)</h3><div class="xscroll"><table><thead><tr><th>Group</th><th class="n">Group balance at year end</th><th class="n">Allowed (4%)</th><th class="n">Expense (input)</th><th class="n">Difference</th><th class="n">Disallowed</th></tr></thead><tbody>'
-   +P.g.slice(1).map((x,i)=>'<tr><td>Group '+(i+1)+' – '+esc(x.name)+'</td>'+cellN(x.base)+cellN(x.allowed)+cellN(x.rm)+cellN(x.rm-x.allowed)+cellN(x.rmDis)+'</tr>').join('')+'</tbody></table></div>';
+   +P.g.slice(1).map((x,j)=>{ const i=j+1; return '<tr><td title="'+esc(x.name)+'">Group '+i+(compact?'':' – '+esc(x.name))+'</td>'+hcell(hl,'ppe:rmb:'+i,x.base,{deps:['ppe:end:'+i,'ppe:dep:'+i],f:'Ending balance for the current year − Depreciation as per ZATCA rates'})+hcell(hl,'ppe:rma:'+i,x.allowed,{deps:['ppe:rmb:'+i],f:'4% × Group balance at year end'})+hcell(hl,'ppe:rm:'+i,x.rm)+hcell(hl,'ppe:rmx:'+i,x.rm-x.allowed,{deps:['ppe:rm:'+i,'ppe:rma:'+i],f:'Expense − Allowed (4%)'})+hcell(hl,'ppe:rmd:'+i,x.rmDis,{deps:['ppe:rmx:'+i],f:'The difference when it is above zero, otherwise 0'})+'</tr>'; }).join('')+'</tbody></table></div>';
 }
-function tblGuar(R,hl){ const G=R.guar;
-  return '<div class="hint" style="margin-bottom:6px">Market value rate: <b>'+pct(G.marketRate)+'</b> · Guarantee fee = Principal ÷ 360 × Days × Fee rate · Market value = Principal ÷ 360 × Days × Market rate</div><div class="xscroll"><table><thead><tr><th>Project</th><th>Bond</th><th>Related party</th><th class="n">Principal (SAR)</th><th>Start</th><th>End</th><th class="n">Days (360)</th><th class="n">Fee rate</th><th class="n">Guarantee fee</th><th class="n">Market value</th><th class="n">Disallowed expense</th></tr></thead><tbody>'
-   +G.items.map((x,i)=>'<tr><td>'+esc(x.project)+'</td><td>'+esc(x.bond)+'</td><td>'+esc(x.party)+'</td>'+cellN(x.principal)+'<td>'+xlDate(x.start)+'</td><td>'+xlDate(x.end)+'</td><td class="n">'+x.days+'</td><td class="n">'+pct(x.rate)+'</td>'+hcell(hl,'guar:'+i+':fee',x.fee)+hcell(hl,'guar:'+i+':mv',x.mv)+hcell(hl,'guar:'+i+':dis',x.dis)+'</tr>').join('')
-   +'<tr class="total"><td colspan="8">Total</td>'+hcell(hl,'guar:T:fee',G.fee)+hcell(hl,'guar:T:mv',G.mv)+hcell(hl,'guar:T:dis',G.dis)+'</tr></tbody></table></div><div class="hint" style="margin-top:6px">For reference: withholding tax 5% on total guarantee fee = '+fmt(G.wht)+'</div>';
+function tblGuar(R,hl){ const G=R.guar, all=k=>G.items.map((x,i)=>'guar:'+i+':'+k), n=G.items.length;
+  return '<div class="hint stickl" style="margin-bottom:6px">Market value rate: <b data-cid="guar:mr" data-label="Market value rate">'+pct(G.marketRate)+'</b></div><div class="xscroll"><table><thead><tr><th>Project</th><th>Bond</th><th>Related party</th><th class="n">Principal (SAR)</th><th>Start</th><th>End</th><th class="n">Days (360)</th><th class="n">Fee rate</th><th class="n">Guarantee fee</th><th class="n">Market value</th><th class="n">Disallowed expense</th></tr></thead><tbody>'
+   +G.items.map((x,i)=>'<tr data-rl="'+esc(x.project+' – '+x.bond)+'"><td>'+esc(x.project)+'</td><td>'+esc(x.bond)+'</td><td>'+esc(x.party)+'</td><td class="n" data-cid="guar:'+i+':principal">'+fmt(x.principal)+'</td><td>'+xlDate(x.start)+'</td><td>'+xlDate(x.end)+'</td><td class="n" data-cid="guar:'+i+':days">'+x.days+'</td><td class="n" data-cid="guar:'+i+':rate">'+pct(x.rate)+'</td>'
+     +hcell(hl,'guar:'+i+':fee',x.fee,{deps:['guar:'+i+':principal','guar:'+i+':days','guar:'+i+':rate'],f:'Principal ÷ 360 × Days × Fee rate'})
+     +hcell(hl,'guar:'+i+':mv',x.mv,G.marketRate==null?null:{deps:['guar:'+i+':principal','guar:'+i+':days','guar:mr'],f:'Principal ÷ 360 × Days × Market value rate'})
+     +hcell(hl,'guar:'+i+':dis',x.dis,G.marketRate==null?null:{deps:['guar:'+i+':fee','guar:'+i+':mv'],f:'Guarantee fee − Market value'})+'</tr>').join('')
+   +'<tr class="total" data-rl="Total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'+['fee','mv','dis'].map(k=>hcell(hl,'guar:T:'+k,G[k],{deps:all(k),f:'Sum of the '+n+' guarantees above'})).join('')+'</tr></tbody></table></div><div class="hint stickl" style="margin-top:6px">For reference: withholding tax 5% on total guarantee fee = '+fmt(G.wht)+'</div>';
 }
+const calcHint='<div class="hint noprint stickl" style="margin:8px 0">Tip: amounts with a <span class="calc">dotted underline</span> are calculated – point at one to see the formula and the cells it uses.</div>';
 function vData(R){
   const btn=(id,l)=>'<button aria-pressed="'+(dataTab===id)+'" data-dtab="'+id+'">'+l+(st[id]?'':' (not provided)')+'</button>';
-  let h='<div class="card"><h2>Source data</h2><div class="hint">The data you uploaded, shown as tables. Calculated columns are recomputed by the app from your inputs.</div><div class="subtabs" style="margin-top:10px">'+btn('tb','Trial Balance')+btn('prov','1. Provision Movement')+btn('ppe','2. PPE – Depreciation')+btn('guar','3. Normal Guarantee')+'</div>';
+  let h='<div class="card srctbl"><h2>Source data</h2><div class="hint">The data you uploaded, shown as tables. Calculated columns are recomputed by the app from your inputs.</div><div class="subtabs" style="margin-top:10px">'+btn('tb','Trial Balance')+btn('prov','1. Provision Movement')+btn('ppe','2. PPE – Depreciation')+btn('guar','3. Normal Guarantee')+'</div>';
   const none=l=>'<div class="blocked"><b>'+l+' has not been provided.</b><div class="hint" style="margin:6px 0 12px">'+(dataTab==='guar'&&st.guarNA?'It is marked as "Not applicable" on the Inputs tab.':'Upload it on the Inputs tab to see it here.')+'</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
   if(dataTab==='tb'){ if(!st.tb) h+=none('Trial Balance'); else {
     const used={}; for(const [k,m] of Object.entries(st.map)) for(const c of m.codes) (used[c]||(used[c]=[])).push(m.label);
-    const q=tbFilter.toLowerCase(); const rows=st.tb.accts.filter(a=>(!q||a.name.toLowerCase().includes(q)||a.code.toLowerCase().includes(q))&&(!tbUsedOnly||used[a.code]));
+    const q=tbFilter.toLowerCase(), full=!q&&!tbUsedOnly; const rows=st.tb.accts.filter(a=>(!q||a.name.toLowerCase().includes(q)||a.code.toLowerCase().includes(q))&&(!tbUsedOnly||used[a.code]));
     h+='<div class="keyin noprint" style="margin-bottom:8px"><label for="tbFilter">Find account</label><input type="text" class="wide" id="tbFilter" placeholder="Name or code" value="'+esc(tbFilter)+'"><label><input type="checkbox" id="tbUsed" '+(tbUsedOnly?'checked':'')+'> Show only accounts used in the tax calculation</label><span class="hint">'+rows.length+' of '+st.tb.accts.length+' accounts</span></div>'
-     +'<div class="scroll">'+tblTB(rows,TB_FIELDS.map(f=>f[0]),null,used,st.tb.grand&&!q&&!tbUsedOnly?st.tb.grand:null)+'</div>'; } }
-  if(dataTab==='prov') h+=st.prov?tblProv(R,null):none('Provision Movement');
-  if(dataTab==='ppe') h+=st.ppe?tblPPE(R,null):none('PPE – Depreciation');
-  if(dataTab==='guar') h+=st.guar?tblGuar(R,null):none('Normal Guarantee');
+     +(full?calcHint:'')+'<div class="scroll">'+tblTB(rows,TB_FIELDS.map(f=>f[0]),null,used,full?st.tb.grand:null,full)+'</div>'; } }
+  if(dataTab==='prov') h+=st.prov?calcHint+tblProv(R,null):none('Provision Movement');
+  if(dataTab==='ppe') h+=st.ppe?calcHint+tblPPE(R,null):none('PPE – Depreciation');
+  if(dataTab==='guar') h+=st.guar?calcHint+tblGuar(R,null):none('Normal Guarantee');
   return h+'</div>';
 }
 
-/* ---------- Split-screen source panel: click a line to see the source table with its cells marked ---------- */
-let side=null;   // {id, tab, kind, cells:[cell keys]}
+/* ---------- Split-screen source panel: click a report line to see the source table with its cells marked ---------- */
+let side=null;   // {id, tab, kind, cells:[cell addresses], only:boolean, idx}
 function sideHtml(R,row){
-  const hl=new Set(side.cells), amt=(c=>c.length?c[c.length-1].textContent:'')(row.querySelectorAll('td.n'));
+  const hl=new Set(side.cells), amt=(c=>c.length?c[c.length-1].textContent:'')(row.querySelectorAll('td.n')), src=st.src[side.kind];
   let body='';
-  if(side.kind==='tb'){ const need=[...new Set(side.cells.map(c=>c.split(':')[2]))]; body=tblTB(st.tb.accts,[...new Set([...need,'ytdDr','ytdCr'])],hl,null,st.tb.grand); }
+  if(side.kind==='tb'){ const need=[...new Set(side.cells.map(c=>c.split(':')[2]))], codes=new Set(side.cells.map(c=>c.split(':')[1]));
+    body=tblTB(side.only?st.tb.accts.filter(a=>codes.has(a.code)):st.tb.accts,[...new Set([...need,'ytdDr','ytdCr'])],hl,null,null,!side.only); }
   else if(side.kind==='prov') body=tblProv(R,hl);
-  else if(side.kind==='ppe') body=tblPPE(R,hl);
+  else if(side.kind==='ppe') body=tblPPE(R,hl,true);
   else if(side.kind==='guar') body=tblGuar(R,hl);
-  return '<div class="shead"><div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><div class="hint">Source of</div><div style="font-size:15px"><b>'+esc(row.dataset.ref||'')+'</b> '+esc(row.dataset.label||'')+' = <b>'+esc(amt)+'</b></div></div><button id="sideClose" title="Close (Esc)" aria-label="Close source panel">✕ Close</button></div>'
-   +'<div class="hint" style="margin-top:6px">'+KIND_LABEL[side.kind]+(st.src[side.kind]?' · '+esc(st.src[side.kind].file)+' · sheet "'+esc(st.src[side.kind].sheet)+'"':'')+' · <span class="srckey">Yellow cells</span> are where this amount comes from. <button class="link" id="sideFull">Open the full table</button></div><div class="where" id="sideWhere"></div></div>'+body;
+  return '<div class="shead"><div class="st"><div class="k">Source of</div><div class="t"><b>'+esc(row.dataset.ref||'')+'</b> '+esc(row.dataset.label||'')+'</div></div><div class="amt"><div class="k">Amount in report</div><div class="v">'+esc(amt)+'</div></div><button id="sideClose" title="Close (Esc)" aria-label="Close source panel">✕</button></div>'
+   +'<div class="smeta"><div class="chips"><span class="chip kind">'+KIND_LABEL[side.kind]+'</span>'+(src?'<span class="chip" title="Uploaded file">'+esc(src.file)+'</span><span class="chip" title="Sheet">Sheet: '+esc(src.sheet)+'</span>':'')+'</div>'
+   +'<div class="where" id="sideWhere"></div>'
+   +'<div class="sact"><span class="hint"><span class="srckey">Yellow</span> = where the amount comes from · <span class="calc">dotted</span> = calculated, point to see how</span><span style="flex:1"></span>'+(side.kind==='tb'?'<button id="sideOnly" aria-pressed="'+!!side.only+'">'+(side.only?'Show all accounts':'Show marked rows only')+'</button>':'')+'<button id="sideFull">Open in Source data tab</button></div></div>'
+   +'<div class="sbody srctbl" id="sideBody">'+body+'</div>';
 }
 function paintSide(){
   const el=document.getElementById('side'), R=window.__R; let row=null;
   document.querySelectorAll('tr.src-open').forEach(r=>r.classList.remove('src-open'));
-  if(side&&side.tab===tab){ const sec=document.getElementById('tab-'+tab)&&document.querySelector('section[aria-labelledby="tab-'+tab+'"]'); row=sec&&sec.querySelector('[data-id="'+CSS.escape(side.id)+'"][data-srck]'); }
+  if(side&&side.tab===tab){ const sec=document.querySelector('section[aria-labelledby="tab-'+tab+'"]'); row=sec&&sec.querySelector('[data-id="'+CSS.escape(side.id)+'"][data-srck]'); }
   if(!row||!st[side.kind]){ side=null; document.body.classList.remove('split'); el.innerHTML=''; return; }
-  document.body.classList.add('split'); row.classList.add('src-open'); el.innerHTML=sideHtml(R,row); el.scrollTop=0;
+  document.body.classList.add('split'); row.classList.add('src-open'); el.innerHTML=sideHtml(R,row);
   document.getElementById('sideClose').onclick=closeSide;
   document.getElementById('sideFull').onclick=()=>{ dataTab=side.kind; go('data'); };
-  sideGoto(0);
+  const so=document.getElementById('sideOnly'); if(so) so.onclick=()=>{ side.only=!side.only; paintSide(); };
+  sideGoto(side.idx||0);
 }
-/* scroll to the i-th marked cell and say where it is (row / column), so the location is clear even in wide tables */
+/* scroll to the i-th marked cell, mark its row and column, and say where it is */
 function sideGoto(i){
-  const el=document.getElementById('side'); const cells=side.cells.map(k=>el.querySelector('[data-ck="'+CSS.escape(k)+'"]')).filter(Boolean); if(!cells.length) return;
+  const body=document.getElementById('sideBody'); const cells=side.cells.map(k=>body.querySelector('[data-ck="'+CSS.escape(k)+'"]')).filter(Boolean); if(!cells.length) return;
   i=(i+cells.length)%cells.length; side.idx=i; const c=cells[i];
   const tr=c.parentNode, table=c.closest('table'), ths=table.tHead?[...table.tHead.rows[0].cells]:[]; let ci=0; for(const td of tr.cells){ if(td===c) break; ci+=td.colSpan||1; }
-  const rowLab=(tr.cells[0].textContent||'').replace(/\s+/g,' ').trim(), th=ths[ci]; const colLab=th?(th.firstChild&&th.firstChild.nodeType===3?th.firstChild.textContent:th.textContent).trim():'';
-  document.getElementById('sideWhere').innerHTML='Location: row <b>'+esc(rowLab.length>70?rowLab.slice(0,68)+'…':rowLab)+'</b>'+(colLab?' · column <b>'+esc(colLab)+'</b>':'')+' · amount <b>'+esc(c.textContent)+'</b>'
-    +(cells.length>1?' <span class="noprint" style="white-space:nowrap">· marked cell '+(i+1)+' of '+cells.length+' <button id="sidePrev" title="Previous marked cell">◀</button> <button id="sideNext" title="Next marked cell">▶</button></span>':'');
+  const rowLab=(tr.dataset.rl||tr.cells[0].textContent||'').replace(/\s+/g,' ').trim(), th=ths[ci]; const colLab=th?(th.firstChild&&th.firstChild.nodeType===3?th.firstChild.textContent:th.textContent).trim():'';
+  body.querySelectorAll('.srccol,.srcrow.cur').forEach(e=>e.classList.remove('srccol','cur')); if(th) th.classList.add('srccol'); tr.classList.add('srcrow','cur');
+  document.getElementById('sideWhere').innerHTML='<span class="wk">Row</span><b>'+esc(rowLab.length>64?rowLab.slice(0,62)+'…':rowLab)+'</b>'+(colLab?'<span class="wk">Column</span><b>'+esc(colLab)+'</b>':'')+'<span class="wk">Amount</span><b>'+esc(c.textContent)+'</b>'
+    +(cells.length>1?'<span class="nav noprint">Marked cell '+(i+1)+' of '+cells.length+' <button id="sidePrev" title="Previous marked cell" aria-label="Previous marked cell">◀</button><button id="sideNext" title="Next marked cell" aria-label="Next marked cell">▶</button></span>':'');
   if(cells.length>1){ document.getElementById('sidePrev').onclick=()=>sideGoto(side.idx-1); document.getElementById('sideNext').onclick=()=>sideGoto(side.idx+1); }
-  const x=c.closest('.xscroll'); if(x){ const xr=x.getBoundingClientRect(), r0=c.getBoundingClientRect(); x.scrollLeft=Math.max(0,x.scrollLeft+r0.right-xr.right+12); }
-  const cr=c.getBoundingClientRect(), er=el.getBoundingClientRect(), head=el.querySelector('.shead').offsetHeight;
-  el.scrollTop=Math.max(0,el.scrollTop+cr.top-er.top-head-(er.height-head)/2+cr.height/2);
+  const cr=c.getBoundingClientRect(), br=body.getBoundingClientRect();
+  body.scrollTop=Math.max(0,body.scrollTop+cr.top-br.top-br.height/2+cr.height/2);
+  const c2=c.getBoundingClientRect();
+  if(c2.right>br.right) body.scrollLeft+=c2.right-br.right+16;
+  else if(c2.left<br.left+240&&body.scrollLeft>0) body.scrollLeft=Math.max(0,body.scrollLeft-(br.left+240-c2.left));
 }
 function closeSide(){ if(!side) return; const id=side.id; side=null; paintSide(); const r=document.querySelector('section[aria-labelledby="tab-'+tab+'"] [data-id="'+CSS.escape(id)+'"]'); if(r) r.focus({preventScroll:true}); }
 function openSource(row){
   hlClear();
   if(row.dataset.srck==='input'){ go('inputs'); const f=document.getElementById(row.dataset.srcc); if(f){ f.scrollIntoView({block:'center'}); f.focus(); } return; }
   if(side&&side.id===row.dataset.id&&side.tab===tab) return closeSide();
-  side={id:row.dataset.id,tab,kind:row.dataset.srck,cells:row.dataset.srcc.split('|')}; paintSide();
+  side={id:row.dataset.id,tab,kind:row.dataset.srck,cells:row.dataset.srcc.split('|'),only:false,idx:0}; paintSide();
 }
 document.addEventListener('click',e=>{ const t=e.target; if(!t.closest||t.closest('#side')) return; const row=t.closest('tr[data-srck]'); if(!row) return; if(t.closest('summary,details,a')||(t.closest('button')&&!t.closest('.srcbtn'))) return; openSource(row); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&side&&document.getElementById('modal').style.display!=='flex') closeSide(); else if(e.key==='Enter'&&e.target.matches&&e.target.matches('tr[data-srck]')) openSource(e.target); });
@@ -850,7 +914,7 @@ function vHistory(){
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with their amounts in a pop-up – like F2 in Excel. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with their amounts in a pop-up – like F2 in Excel. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
    +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
@@ -912,34 +976,47 @@ function bind(){
       snapshot(); const keep=st.savedAt; st=normalize(j.state); st.savedAt=keep; save(); render(); toast('Data file imported into FY'+App.year+'.',true); }
     catch(x){ toast('This file is not a data file downloaded from this app. Choose a file named like SGC_Arabia_CIT_FY2025.json.'); } };
 }
-/* ---------- Precedent highlighting (like F2 in Excel) ---------- */
+/* ---------- Precedent highlighting (like F2 in Excel): report lines (tr[data-id]) and source-table cells ([data-cid]) ---------- */
 const HL_COLORS=['#1f5fa8','#c0392b','#7b3fa0','#1b7f4b','#b35c00','#0f7c8c','#a8326e','#5b6b00'];
 let hlRow=null;
+function cellLabel(c){
+  if(c.dataset.label) return '<b>'+esc(c.dataset.label)+'</b>';
+  const tr=c.closest('tr'); if(!tr) return ''; let ci=0; for(const td of tr.cells){ if(td===c) break; ci+=td.colSpan||1; }
+  const table=tr.closest('table'), th=table.tHead?table.tHead.rows[0].cells[ci]:null, col=th?(th.firstChild&&th.firstChild.nodeType===3?th.firstChild.textContent:th.textContent).trim():'';
+  let row=(tr.dataset.rl||tr.cells[0].textContent||'').replace(/\s+/g,' ').trim(); if(row.length>46) row=row.slice(0,44)+'…';
+  return '<b>'+esc(row)+'</b>'+(col?' · '+esc(col):'');
+}
 function hlClear(){ if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.getElementById('hltip').style.display='none'; hlRow=null; }
 function hlShow(row){
   if(row===hlRow) return; hlClear(); hlRow=row; row.classList.add('hl-focus');
-  const scope=row.closest('section'), deps=(row.dataset.deps||'').split(',').filter(Boolean), val=r=>{ const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
-  const name=r=>(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(r.dataset.label||'');
-  let list='';
-  deps.forEach((d,i)=>{ const c=HL_COLORS[i%HL_COLORS.length]; const el=scope.querySelector('[data-id="'+CSS.escape(d)+'"]');
-    row.querySelectorAll('.tok[data-tok="'+CSS.escape(d)+'"]').forEach(t=>{t.classList.add('on'); t.style.setProperty('--pc',c);});
-    if(!el) return; el.classList.add('hl-prec'); el.style.setProperty('--pc',c);
-    list+='<div class="tiprow"><span class="chip" style="background:'+c+'"></span><span class="tl">'+name(el)+'</span><span class="tv">'+esc(val(el))+'</span></div>'; });
-  const f=row.querySelector('.formula'); const src=f?f.innerHTML:esc(row.dataset.src||'');
+  const isRow=row.tagName==='TR', scope=isRow?row.closest('section'):row.closest('.srctbl'), deps=(row.dataset.deps||'').split(isRow?',':'|').filter(Boolean), many=deps.length>8;
+  const val=r=>{ if(r.tagName!=='TR') return r.textContent.trim(); const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
+  const name=r=>r.tagName==='TR'?(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(r.dataset.label||''):cellLabel(r);
+  let list='', shown=0, found=0;
+  deps.forEach((d,i)=>{ const c=many?HL_COLORS[0]:HL_COLORS[i%HL_COLORS.length]; const el=scope.querySelector((isRow?'[data-id="':'[data-cid="')+CSS.escape(d)+'"]');
+    if(isRow) row.querySelectorAll('.tok[data-tok="'+CSS.escape(d)+'"]').forEach(t=>{t.classList.add('on'); t.style.setProperty('--pc',c);});
+    if(!el) return; found++; el.classList.add('hl-prec'); el.style.setProperty('--pc',c);
+    if(!many||shown<6){ shown++; list+='<div class="tiprow"><span class="chip" style="background:'+c+'"></span><span class="tl">'+name(el)+'</span><span class="tv">'+esc(val(el))+'</span></div>'; } });
+  if(found>shown) list+='<div class="tiprow"><span class="chip" style="background:'+HL_COLORS[0]+'"></span><span class="tl">… and '+(found-shown)+' more highlighted cells</span></div>';
+  const f=isRow?row.querySelector('.formula'):null; const src=isRow?(f?f.innerHTML:esc(row.dataset.src||'')):esc(row.dataset.f||'');
   const tip=document.getElementById('hltip');
   tip.innerHTML='<div class="th">'+name(row)+'</div>'+(deps.length?'<div class="tf">= '+src+'</div>'+list+'<div class="tiprow tres"><span class="tl">Result</span><span class="tv">'+esc(val(row))+'</span></div>':'<div class="tf">Input – '+(src||'source data')+'</div><div class="tiprow tres"><span class="tl">Amount</span><span class="tv">'+esc(val(row))+'</span></div>');
   tip.style.display='block'; hlPlace();
 }
 function hlPlace(){
   if(!hlRow) return; const tip=document.getElementById('hltip');
-  const cells=hlRow.querySelectorAll('td.n'), a=(cells.length?cells[cells.length-1]:hlRow).getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
+  const cells=hlRow.tagName==='TR'?hlRow.querySelectorAll('td.n'):[], a=(cells.length?cells[cells.length-1]:hlRow).getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
   let left=Math.max(8,Math.min(a.right-w,window.innerWidth-w-8)), top=a.bottom+6;
-  if(top+h>window.innerHeight-8){ /* no room below: sit to the left of the amount column so the highlighted amounts above stay visible */
+  if(hlRow.tagName!=='TR'&&a.left-w-12>=8){ /* source cell: sit to its left so the cells above and below it stay visible */
+    left=a.left-w-12; top=Math.max(8,Math.min(a.top,window.innerHeight-h-8)); }
+  else if(top+h>window.innerHeight-8){ /* no room below: sit to the left of the amount so the highlighted amounts above stay visible */
     if(a.left-w-12>=8){ left=a.left-w-12; top=Math.max(8,Math.min(a.bottom-h,window.innerHeight-h-8)); } else top=Math.max(8,a.top-h-6); }
   tip.style.left=left+'px'; tip.style.top=top+'px';
 }
 function hlTarget(el){
-  if(!el||!el.closest) return null; const sec=el.closest('section'); if(!sec) return null;
+  if(!el||!el.closest) return null;
+  const c=el.closest('[data-cid][data-deps]'); if(c&&c.closest('.srctbl')) return c;
+  const sec=el.closest('section'); if(!sec) return null;
   const k=el.closest('[data-hl]'); if(k) return sec.querySelector('[data-id="'+CSS.escape(k.dataset.hl)+'"]');
   return el.closest('.hltable tr[data-id]');
 }
@@ -947,6 +1024,7 @@ document.addEventListener('mouseover',e=>{ if(e.target.closest&&e.target.closest
 document.addEventListener('focusin',e=>{ const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') hlClear(); });
 window.addEventListener('scroll',hlPlace,{passive:true}); window.addEventListener('resize',hlPlace);
+document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='sideBody') hlPlace(); },true);
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
 document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
 document.getElementById('btnPrint').onclick=()=>window.print();
