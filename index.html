@@ -22,7 +22,7 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible,summary:focus-
 header button{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
 header button:hover{background:rgba(255,255,255,.15)}
 header select{font:inherit;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.5);background:#fff;color:var(--ink)}
-header .hbtns{align-items:center} header .sub b{color:#fff;opacity:1}
+header .hbtns{align-items:center} header .sub b{color:#fff;opacity:1} header .sub b.warnchip{background:#ffd84d;color:#1c2733;padding:2px 8px;border-radius:10px}
 input:disabled{background:#eef1f4;color:var(--muted)} code{background:#eef1f4;padding:1px 5px;border-radius:4px}
 button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 button.primary:hover{background:#0c3d4a}
@@ -197,6 +197,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
     <select id="yearSel" title="Open a saved fiscal year or start a new one"></select>
     <span class="sub" id="storeInfo"></span>
     <button id="btnFolder" title="Pick the team's shared network folder so everyone sees the same data"></button>
+    <button id="btnRefresh" title="Load what colleagues saved in the shared folder (also done automatically every 20 seconds)">↻ Refresh</button>
     <button id="btnPrint" title="Print the tax computation, deferred tax and notices (or save as PDF)">Print / PDF</button>
   </div>
 </header>
@@ -535,7 +536,7 @@ const te=new TextEncoder(), tdec=new TextDecoder();
 
 /* ---------- 6) State and helpers ---------- */
 const blank=()=>({tb:null,prov:null,ppe:null,guar:null,guarNA:false,final:false,savedAt:null,manual:[],src:{},keyins:{fsFA:'',priorDT:'',taxRate:0.2,share:1},map:JSON.parse(JSON.stringify(DEFAULT_MAP))});
-const App={store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
+const App={auto:true,checkedAt:null,store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
 let st=blank(), tab='inputs', dataTab='tb', undoSnap=null, tbFilter='', tbUsedOnly=false, mapOpen=false;
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const mk=(y,m)=>m?Math.round((y+m/100)*100)/100:y, kY=k=>Math.floor(k), kM=k=>Math.round((k-Math.floor(k))*100);
@@ -559,6 +560,31 @@ async function deleteYears(ys){
   if(done.includes(App.year)){ App.year=null; st=blank(); side=null; undoSnap=null; if(App.years.length) await openYear(App.years[0]); }
   render();
   toast((done.length?'Deleted '+done.map(y=>''+lab(y)).join(', ')+'. A copy was kept in the "_deleted" folder'+(App.store.kind==='folder'?' of the shared folder':'')+'.':'')+(failed.length?' Could not delete: '+failed.join('; ')+'.':''));
+}
+/* Pick up what colleagues saved: re-read the shared folder (every 20 seconds, when the window gets focus, or with the Refresh button). */
+function refresh(manual){ saveQ=saveQ.then(()=>doRefresh(manual)).catch(e=>{ if(manual) toast('The shared folder could not be read: '+(e&&e.message||e)); }); return saveQ; }
+async function doRefresh(manual){
+  if(App.pending){ if(manual) toast('Click "Reconnect shared folder" first.'); return; }
+  const before=JSON.stringify(App.years.map(y=>[y,(App.hist[y]||{}).savedAt||null]));
+  const names=await App.store.list(''), keys=names.map(n=>/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n)).filter(Boolean).map(m=>mk(+m[1],m[2]?+m[2]:0)).sort(kCmp), hist={}, years=[];
+  for(const y of keys){ const s=await readState(y); if(s){ hist[y]=s; years.push(y); } }
+  const typing=document.activeElement&&document.activeElement.tagName==='INPUT'&&document.activeElement.type==='text'&&document.activeElement.closest('main');
+  let msg='', redraw=false;
+  if(App.year!=null&&!years.includes(App.year)){
+    if(App.loadedAt){ msg=lab(App.year)+' was deleted by a colleague.'; App.year=null; st=blank(); side=null; undoSnap=null; App.loadedAt=null; App.conflict=false; if(years.length){ App.year=years[0]; st=hist[years[0]]; App.loadedAt=st.savedAt||null; } redraw=true; }
+    else { years.push(App.year); years.sort(kCmp); hist[App.year]=App.hist[App.year]; }   // started here, not saved yet
+  } else if(App.year!=null&&(hist[App.year].savedAt||null)!==App.loadedAt){
+    if(typing&&!manual){ hist[App.year]=App.hist[App.year]; }    // do not replace the data while someone is typing; picked up on the next round
+    else { st=JSON.parse(JSON.stringify(hist[App.year])); App.loadedAt=st.savedAt||null; App.conflict=false; undoSnap=null; msg=lab(App.year)+' was updated with data saved by a colleague.'; redraw=true; }
+  } else if(App.year!=null) hist[App.year]=App.hist[App.year]||hist[App.year];
+  const news=years.filter(y=>!App.years.includes(y));
+  App.years=years; App.hist=hist;
+  if(App.year==null&&years.length&&!document.getElementById('newYear')){ App.year=years[0]; st=hist[years[0]]; App.loadedAt=st.savedAt||null; redraw=true; }
+  if(news.length) msg+=(msg?' ':'')+'New in History: '+news.map(lab).join(', ')+'.';
+  App.checkedAt=new Date();
+  const changed=before!==JSON.stringify(years.map(y=>[y,(hist[y]||{}).savedAt||null]));
+  if(redraw||(changed&&(tab==='history'||App.year==null))) render(); else renderHeader();
+  if(msg) toast(msg); else if(manual) toast('Up to date – nothing new in the '+(App.store.kind==='folder'?'shared folder':'browser storage')+'.');
 }
 let saveQ=Promise.resolve();
 function save(){ if(App.year==null) return saveQ; const y=App.year, snap=JSON.stringify(st); App.hist[y]=JSON.parse(snap);
@@ -601,9 +627,15 @@ async function connectFolder(handle){
     step='test';
     const fh=await handle.getFileHandle('.cit-write-test',{create:true}); const w=await fh.createWritable(); await w.write('ok'); await w.close(); await handle.removeEntry('.cit-write-test');
     await saveQ;
+    const wasLocal=App.store.kind==='local';
     App.store=folderStore(handle); App.pending=null; try{ await idb.set('dirHandle',handle); }catch(e){}
-    await loadAll(); App.year=null; st=blank(); if(App.years.length) await openYear(App.years[0]);
-    tab=App.years.length?tab:'inputs'; render(); toast('Connected to shared folder: '+handle.name+(App.years.length?'':' (no saved years yet)'));
+    await loadAll(); let moved=[];
+    if(wasLocal){ try{ for(const n of await localStore.list('')){ const m=/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n); if(!m) continue; const k=mk(+m[1],m[2]?+m[2]:0); if(App.years.includes(k)) continue;
+        const d=await localStore.read(n+'/data.json'); if(!d) continue; await App.store.write(n+'/data.json',d);
+        for(const f of await localStore.list(n+'/source')){ const u=await localStore.read(n+'/source/'+f); if(u) await App.store.write(n+'/source/'+f,u); }
+        moved.push(k); } if(moved.length) await loadAll(); }catch(e){} }
+    App.year=null; st=blank(); if(App.years.length) await openYear(moved.length?moved[0]:App.years[0]);
+    tab=App.years.length?tab:'inputs'; render(); toast('Connected to shared folder: '+handle.name+(moved.length?'. Copied to the shared folder (they were saved in this browser only): '+moved.map(lab).join(', ')+'.':App.years.length?'':' (no saved records yet)'));
   }catch(e){
     if(e.name==='AbortError'&&step==='pick') return;
     const why=e.name==='SecurityError'||e.name==='NotAllowedError'?'The browser or a company policy blocked access to this folder.':e.name==='NoModificationAllowedError'||e.name==='InvalidModificationError'?'The folder is read-only for this Windows user (the share permission must be Read/Write).':'The folder could not be opened.';
@@ -650,7 +682,8 @@ function renderHeader(){
   document.getElementById('hsub').textContent=(st.tb&&st.tb.company?st.tb.company+' · ':'')+'Corporate Income Tax & Deferred Tax (amounts in SAR)';
   const sel=document.getElementById('yearSel'); const ys=[...App.years]; if(App.year!=null&&!ys.includes(App.year)) ys.unshift(App.year);
   sel.innerHTML=(App.year==null?'<option value="" selected>– choose –</option>':'')+ys.map(y=>'<option value="'+y+'"'+(y===App.year?' selected':'')+'>'+lab(y)+((y===App.year?st:App.hist[y]||{}).final?' · final':'')+'</option>').join('')+'<option value="new">＋ New period…</option>';
-  document.getElementById('storeInfo').innerHTML=(App.store.kind==='folder'?'Shared folder: <b>'+esc(App.store.name)+'</b>':'<b>This browser only</b> (not shared)')+(App.savedMsg?' · '+esc(App.savedMsg):'');
+  document.getElementById('storeInfo').innerHTML=(App.pending?'<b class="warnchip">Shared folder NOT connected</b>':App.store.kind==='folder'?'Shared folder: <b>'+esc(App.store.name)+'</b>':'<b class="warnchip">This browser only – NOT shared</b>')+(App.savedMsg?' · '+esc(App.savedMsg):'')+(App.checkedAt&&App.store.kind==='folder'&&!App.pending?' · Checked '+App.checkedAt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):'');
+  document.getElementById('btnRefresh').style.display=App.store.kind==='folder'&&!App.pending?'':'none';
   const b=document.getElementById('btnFolder'); b.style.display=window.showDirectoryPicker?'':'none'; b.textContent=App.pending?'Reconnect shared folder':App.store.kind==='folder'?'Change folder':'Connect shared folder';
 }
 function render(){
@@ -666,6 +699,8 @@ function render(){
   const keep=document.activeElement&&document.activeElement.id, selS=keep?document.activeElement.selectionStart:null;
   const noYear='<div class="card blocked"><h2>No fiscal year is open</h2><div class="hint" style="margin:8px 0 14px">Choose a fiscal year in the top bar, or start a new one on the Inputs tab.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
   let banner='';
+  if(App.pending) banner+='<div class="notice err noprint"><b class="lv">Not connected</b><div>The team\'s shared folder is not connected in this browser session, so you are <b>not seeing the data your colleagues saved</b> and your changes are not shared.<div class="fix"><button class="primary" id="btnReconnect">Reconnect shared folder</button> then choose <b>Edit files</b> / <b>Allow</b>.</div></div></div>';
+  else banner+=folderHelp();
   if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for '+lab(App.year)+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
   if(App.connectMsg) banner+='<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>';
   if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>'+lab(App.year)+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
@@ -676,11 +711,11 @@ function render(){
 }
 function go(t){ tab=t; side=null; render(); window.scrollTo(0,0); }
 const folderHelp=()=>App.store.kind==='folder'?'':(window.showDirectoryPicker
-  ?'<div class="notice warn noprint"><b class="lv">Sharing</b><div>Data is currently saved <b>in this browser only</b>, so colleagues cannot see it.<div class="fix"><b>What to do:</b> click <b>Connect shared folder</b> (top right) and pick the team\'s network folder for this app. In the folder window, type the network path (for example <code>\\\\JKPC\\Corporate Income Tax</code>) in the <b>Folder:</b> box, click <b>Select Folder</b>, then <b>Edit files</b> / <b>Allow</b>. Do not pick a drive letter such as Z:.</div></div></div>'
+  ?'<div class="notice warn noprint"><b class="lv">Sharing</b><div>Data is currently saved <b>in this browser only</b>: colleagues cannot see what you upload, and you cannot see what they upload.<div class="fix"><b>What to do:</b> click <b>Connect shared folder</b> (top right) and pick the team\'s network folder for this app. In the folder window, type the network path (for example <code>\\\\JKPC\\Corporate Income Tax</code>) in the <b>Folder:</b> box, click <b>Select Folder</b>, then <b>Edit files</b> / <b>Allow</b>. Do not pick a drive letter such as Z:.</div></div></div>'
   :'<div class="notice warn noprint"><b class="lv">Sharing</b><div>This browser cannot connect a shared folder, so data is saved in this browser only. Use Chrome or Edge on a computer to share data with the team.</div></div>');
 
 function vStart(){
-  return folderHelp()+'<div class="card"><h2>Which period are you preparing?</h2><div class="hint">Each record is saved separately and listed under History: the year-end closing of a fiscal year, or a monthly run (January up to the chosen month) for testing or interim figures. Monthly records never overwrite each other or the year-end record.</div>'
+  return '<div class="card"><h2>Which period are you preparing?</h2><div class="hint">Each record is saved separately and listed under History: the year-end closing of a fiscal year, or a monthly run (January up to the chosen month) for testing or interim figures. Monthly records never overwrite each other or the year-end record.</div>'
    +'<div class="keyin" style="margin-top:12px;align-items:flex-end"><label class="hint" for="newYear">Fiscal year<br><input type="text" id="newYear" inputmode="numeric" maxlength="4" placeholder="e.g. 2026" style="width:120px"></label>'
    +'<label class="hint" for="newPeriod">Period<br><select class="in" id="newPeriod"><option value="0">Full year – year-end closing</option>'+MONTHS_LONG.map((m,i)=>'<option value="'+(i+1)+'">January to '+m+' (monthly)</option>').join('')+'</select></label>'
    +'<button class="primary" id="btnStartYear">Start</button><span class="fielderr" id="e-newYear"></span></div>'
@@ -708,7 +743,7 @@ function vInputs(R,cl,done){
   const mapRows=Object.entries(st.map).map(([key,m])=>{ const found=st.tb?m.codes.map(c=>{const a=st.tb.accts.find(x=>x.code===c); return a?esc(a.name):'<span class="neg">'+esc(c)+' not found</span>';}).join('; '):'–';
     return '<tr><td>'+esc(m.label)+'</td><td class="hint">'+esc(m.use)+'</td><td><input type="text" class="wide" data-map="'+key+'" id="m-'+key+'"'+dis+' value="'+esc(m.codes.join(', '))+'" aria-label="Account codes for '+esc(m.label)+'"></td><td>'+found+'</td></tr>'; }).join('');
   const allDone=done===cl.length;
-  return folderHelp()+'<div class="card"><div class="statusbar"><div><h2>'+lab(App.year)+' · Inputs checklist</h2><div class="hint">'+(allDone?'All inputs are provided. Review the results in tabs 3 and 4.':'Provide each item below. A green tick appears as each one is received.')+'</div></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="'+cl.length+'" aria-valuenow="'+done+'" aria-label="Inputs provided"><div style="width:'+(done/cl.length*100)+'%"></div></div><b>'+done+' of '+cl.length+' provided</b></div>'
+  return '<div class="card"><div class="statusbar"><div><h2>'+lab(App.year)+' · Inputs checklist</h2><div class="hint">'+(allDone?'All inputs are provided. Review the results in tabs 3 and 4.':'Provide each item below. A green tick appears as each one is received.')+'</div></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="'+cl.length+'" aria-valuenow="'+done+'" aria-label="Inputs provided"><div style="width:'+(done/cl.length*100)+'%"></div></div><b>'+done+' of '+cl.length+' provided</b></div>'
    +(lock?'':'<div class="drop noprint" id="drop"><b>Drop Excel file(s) here</b> or <button class="primary" id="btnBrowse">Choose files…</button><div class="hint" style="margin-top:6px">One workbook containing all sheets, or separate .xlsx files – each sheet is recognized automatically by its layout. Uploading again replaces the earlier data. Every change is saved automatically.</div><input type="file" id="fileIn" accept=".xlsx,.xlsm" multiple hidden></div>')
    +'<div class="noprint" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+(lock?'':(allDone?'<button class="primary" id="btnFinal" title="Lock this year so it cannot be changed by accident">Mark '+lab(App.year)+' as final</button>':'')+'<button class="danger" id="btnReset">Clear this year\'s inputs</button>')+'</div></div>'
    +'<div class="card">'+cl.map(row).join('')+'</div>'
@@ -965,7 +1000,7 @@ function vHistory(){
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Period</b> (top bar) – open a saved record or start a new one: the year-end closing of a fiscal year, or a monthly run (January to a chosen month). Every record is saved separately; monthly runs do not overwrite each other.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a calculated amount to pin its calculation, laid out line by line down to the result, in a window you can drag around; click anywhere else (or press Esc) to close it. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year. To remove test data, tick the years and click <b>Delete selected</b> (final years must be unlocked first; a copy is kept in the "_deleted" folder).</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past records are shared. What one person uploads appears for the others within about 20 seconds (or at once with <b>↻ Refresh</b>). If the top bar shows a yellow "NOT shared" or "NOT connected" label, that computer is not seeing the team data yet.</li><li><b>Period</b> (top bar) – open a saved record or start a new one: the year-end closing of a fiscal year, or a monthly run (January to a chosen month). Every record is saved separately; monthly runs do not overwrite each other.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a calculated amount to pin its calculation, laid out line by line down to the result, in a window you can drag around; click anywhere else (or press Esc) to close it. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year. To remove test data, tick the years and click <b>Delete selected</b> (final years must be unlocked first; a copy is kept in the "_deleted" folder).</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
    +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open period (year and last month).</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
@@ -1021,6 +1056,7 @@ function bind(){
     b.onclick=()=>{ const ys=[...histSel].filter(y=>App.years.includes(y)&&!(y===App.year?st:App.hist[y]||{}).final).sort(); if(!ys.length) return;
       confirmBox('Delete '+ys.map(y=>''+lab(y)).join(', ')+'?','The selected year'+(ys.length>1?'s are':' is')+' removed from History for everyone using '+(App.store.kind==='folder'?'this shared folder':'this browser')+'. A copy of the data and uploaded Excel files is kept in the "_deleted" folder.','Delete '+ys.length+' year'+(ys.length>1?'s':''),()=>deleteYears(ys)); }; }
   if($('btnReload')) $('btnReload').onclick=()=>switchYear(App.year);
+  if($('btnReconnect')) $('btnReconnect').onclick=()=>connectFolder(App.pending);
   if($('btnFinal')) $('btnFinal').onclick=()=>confirmBox('Mark '+lab(App.year)+' as final?','The year becomes read-only for everyone. It can be unlocked later if a correction is needed.','Mark as final',()=>{ st.final=true; save(); render(); toast(''+lab(App.year)+' is now final.'); });
   if($('btnUnlock')) $('btnUnlock').onclick=()=>confirmBox('Unlock '+lab(App.year)+'?','The year becomes editable again. Changes are saved for everyone.','Unlock',()=>{ st.final=false; save(); render(); });
   if($('btnReset')) $('btnReset').onclick=()=>confirmBox('Clear '+lab(App.year)+' inputs?','This removes all uploaded data and key-in values of '+lab(App.year)+' for everyone. Other years are not affected. You can undo right after.','Clear inputs',()=>{ snapshot(); st=blank(); save(); render(); toast(''+lab(App.year)+' inputs were cleared.',true); });
@@ -1118,15 +1154,18 @@ window.addEventListener('resize',()=>{ if(pinEl){ const r=document.getElementByI
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
 document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
 document.getElementById('btnPrint').onclick=()=>window.print();
+document.getElementById('btnRefresh').onclick=()=>refresh(true);
+const autoRefresh=()=>{ if(App.auto&&!App.pending&&App.store.kind==='folder'&&document.visibilityState==='visible'&&!pinEl&&document.getElementById('modal').style.display!=='flex') refresh(false); };
+setInterval(autoRefresh,20000); window.addEventListener('focus',autoRefresh); document.addEventListener('visibilitychange',autoRefresh);
 document.getElementById('btnFolder').onclick=()=>connectFolder(App.pending);
 document.getElementById('yearSel').onchange=e=>{ const v=e.target.value; if(v==='new') newYear(); else if(v) switchYear(+v); };
-window.__app={connect:connectFolder,state:()=>st,App};
+window.__app={connect:connectFolder,refresh,state:()=>st,App};
 (async function init(){
   try{ const h=window.showDirectoryPicker?await idb.get('dirHandle'):null;
     if(h){ if(!h.queryPermission||(await h.queryPermission({mode:'readwrite'}))==='granted') App.store=folderStore(h); else App.pending=h; } }catch(e){}
   try{ await loadAll(); if(App.years.length) await openYear(App.years[0]); }catch(e){ App.connectMsg='Saved data could not be read ('+(e&&e.message||e)+'). Reconnect the shared folder.'; }
   render(); window.__ready=true;
-  if(App.pending) toast('Click "Reconnect shared folder" (top right) to load the team data.');
+  if(App.pending) toast('Click "Reconnect shared folder" to load the team data.');
 })();
 </script>
 </body>
