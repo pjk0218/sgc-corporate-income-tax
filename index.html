@@ -122,10 +122,17 @@ tr.hl-prec td:first-child{box-shadow:inset 4px 0 0 var(--pc)}
 tr.hl-prec td.n{outline:2px solid var(--pc);outline-offset:-2px;color:var(--pc);font-weight:700}
 .tok.on{color:var(--pc);font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .kpi[data-hl]{cursor:default} .kpi[data-hl]:hover,.kpi[data-hl]:focus{border-color:var(--brand)}
-#hltip{position:fixed;z-index:15;display:none;background:#fff;border:1px solid #9fb3c1;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:10px 12px;font-size:12px;min-width:260px;max-width:440px;pointer-events:none}
-#hltip .th{font-size:13px;margin-bottom:4px} #hltip .tf{color:var(--muted);margin-bottom:6px}
-#hltip .tiprow{display:flex;gap:8px;align-items:center;padding:2px 0} #hltip .tl{flex:1} #hltip .tv{font-variant-numeric:tabular-nums;white-space:nowrap}
-#hltip .chip{width:10px;height:10px;border-radius:2px;flex:none} #hltip .tres{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;font-weight:700}
+/* formula bar: fixed place for the explanation, so it never covers the table */
+.fbar{flex-basis:100%;width:100%;height:92px;overflow:hidden auto;border-top:1px solid var(--line);padding:7px 0 6px;font-size:12px;line-height:1.5;background:#fff;color:var(--ink);font-weight:400}
+.fbar .idle{color:var(--muted);display:flex;align-items:center;height:100%}
+.fbar .f1{display:flex;gap:8px;align-items:baseline}
+.fbar .nm{font-size:13px;white-space:nowrap;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+.fbar .eq{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fbar .res{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;background:#fff3c4;box-shadow:inset 0 0 0 2px #1c2733;padding:0 7px;border-radius:3px}
+.fbar .f2{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:5px}
+.fitem{display:inline-flex;gap:7px;align-items:center;white-space:nowrap;border-radius:4px;padding:0 7px;background:color-mix(in srgb,var(--pc) 12%,#fff);box-shadow:inset 0 0 0 1.5px var(--pc)}
+.fitem .tv{font-variant-numeric:tabular-nums;font-weight:700;color:var(--pc)}
+#side .fbar{flex:none;padding:7px 18px 6px;border-top:none;border-bottom:1px solid var(--line);width:auto}
 tr.manrow td{color:var(--muted);font-size:12px;font-style:italic;padding-top:2px;padding-bottom:2px}
 select.in{font:inherit;padding:6px 8px;border:1px solid #aab6c1;border-radius:6px;max-width:100%}
 .ref{color:var(--muted);font-size:12px;white-space:nowrap}
@@ -154,7 +161,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 .modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .maptable input{width:100%;text-align:left}
 @media print{
-  header .hbtns,nav,#toast,#hltip,#side,.noprint,summary{display:none!important}
+  header .hbtns,nav,#toast,#side,.noprint,summary{display:none!important}
   body.split main{margin-right:0;display:block}
   body{background:#fff} main{max-width:none;padding:0}
   section[role=tabpanel]{display:none!important}
@@ -180,7 +187,6 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 <nav role="tablist" aria-label="Sections" id="nav"></nav>
 <main id="main"></main>
 <aside id="side" aria-label="Source data"></aside>
-<div id="hltip" role="tooltip" aria-live="polite"></div>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div>
   <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px"></h2><div id="modalBody"></div>
@@ -617,7 +623,7 @@ function render(){
   renderHeader();
   const tabs=[['inputs','1 · Inputs',App.year==null?'':'<span class="badge '+(done===cl.length?'ok':'')+'">'+done+'/'+cl.length+'</span>'],['data','2 · Source data',''],['cit','3 · Corporate Income Tax',''],['dt','4 · Deferred Tax',''],
     ['notices','Notices',App.year==null?'':(nErr?'<span class="badge err" title="Missing inputs / errors">'+nErr+'</span>':'')+(nWarn?'<span class="badge warn" title="Please review">'+nWarn+'</span>':'')+(nInfo?'<span class="badge" title="For information">'+nInfo+'</span>':'')+(!nErr&&!nWarn&&!nInfo?'<span class="badge ok">0</span>':'')],['history','History','<span class="badge">'+App.years.length+'</span>'],['help','Help','']];
-  document.getElementById('nav').innerHTML=tabs.map(([id,l,b])=>'<button role="tab" id="tab-'+id+'" aria-selected="'+(tab===id)+'" data-tab="'+id+'">'+l+b+'</button>').join('');
+  document.getElementById('nav').innerHTML=tabs.map(([id,l,b])=>'<button role="tab" id="tab-'+id+'" aria-selected="'+(tab===id)+'" data-tab="'+id+'">'+l+b+'</button>').join('')+(App.year!=null&&['cit','dt','data'].includes(tab)?'<div class="fbar noprint" id="fbar" aria-live="polite">'+FBAR_IDLE+'</div>':'');
   const sec=(id,html)=>'<section role="tabpanel" aria-labelledby="tab-'+id+'" class="'+(['cit','dt','notices'].includes(id)?'printme':'')+'" style="display:'+(tab===id?'block':'none')+'">'+html+'</section>';
   const keep=document.activeElement&&document.activeElement.id, selS=keep?document.activeElement.selectionStart:null;
   const noYear='<div class="card blocked"><h2>No fiscal year is open</h2><div class="hint" style="margin:8px 0 14px">Choose a fiscal year in the top bar, or start a new one on the Inputs tab.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
@@ -730,7 +736,7 @@ function tblGuar(R,hl){ const G=R.guar, all=k=>G.items.map((x,i)=>'guar:'+i+':'+
      +hcell(hl,'guar:'+i+':dis',x.dis,G.marketRate==null?null:{deps:['guar:'+i+':fee','guar:'+i+':mv'],f:'Guarantee fee − Market value'})+'</tr>').join('')
    +'<tr class="total" data-rl="Total"><td>Total</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'+['fee','mv','dis'].map(k=>hcell(hl,'guar:T:'+k,G[k],{deps:all(k),f:'Sum of the '+n+' guarantees above'})).join('')+'</tr></tbody></table></div><div class="hint stickl" style="margin-top:6px">For reference: withholding tax 5% on total guarantee fee = '+fmt(G.wht)+'</div>';
 }
-const calcHint='<div class="hint noprint stickl" style="margin:8px 0">Tip: amounts with a <span class="calc">dotted underline</span> are calculated – point at one to see the formula and the cells it uses.</div>';
+const calcHint='<div class="hint noprint stickl" style="margin:8px 0">Tip: amounts with a <span class="calc">dotted underline</span> are calculated – point at one to highlight the cells it uses; the formula appears in the bar above the table.</div>';
 function vData(R){
   const btn=(id,l)=>'<button aria-pressed="'+(dataTab===id)+'" data-dtab="'+id+'">'+l+(st[id]?'':' (not provided)')+'</button>';
   let h='<div class="card srctbl"><h2>Source data</h2><div class="hint">The data you uploaded, shown as tables. Calculated columns are recomputed by the app from your inputs.</div><div class="subtabs" style="margin-top:10px">'+btn('tb','Trial Balance')+btn('prov','1. Provision Movement')+btn('ppe','2. PPE – Depreciation')+btn('guar','3. Normal Guarantee')+'</div>';
@@ -759,7 +765,8 @@ function sideHtml(R,row){
   return '<div class="shead"><div class="st"><div class="k">Source of</div><div class="t"><b>'+esc(row.dataset.ref||'')+'</b> '+esc(row.dataset.label||'')+'</div></div><div class="amt"><div class="k">Amount in report</div><div class="v">'+esc(amt)+'</div></div><button id="sideClose" title="Close (Esc)" aria-label="Close source panel">✕</button></div>'
    +'<div class="smeta"><div class="chips"><span class="chip kind">'+KIND_LABEL[side.kind]+'</span>'+(src?'<span class="chip" title="Uploaded file">'+esc(src.file)+'</span><span class="chip" title="Sheet">Sheet: '+esc(src.sheet)+'</span>':'')+'</div>'
    +'<div class="where" id="sideWhere"></div>'
-   +'<div class="sact"><span class="hint"><span class="srckey">Yellow</span> = where the amount comes from · <span class="calc">dotted</span> = calculated, point to see how</span><span style="flex:1"></span>'+(side.kind==='tb'?'<button id="sideOnly" aria-pressed="'+!!side.only+'">'+(side.only?'Show all accounts':'Show marked rows only')+'</button>':'')+'<button id="sideFull">Open in Source data tab</button></div></div>'
+   +'<div class="sact"><span class="hint"><span class="srckey">Yellow</span> = where the amount comes from · <span class="calc">dotted</span> = calculated, point to see how it is calculated in the bar below</span><span style="flex:1"></span>'+(side.kind==='tb'?'<button id="sideOnly" aria-pressed="'+!!side.only+'">'+(side.only?'Show all accounts':'Show marked rows only')+'</button>':'')+'<button id="sideFull">Open in Source data tab</button></div></div>'
+   +'<div class="fbar" id="sideF" aria-live="polite">'+FBAR_IDLE+'</div>'
    +'<div class="sbody srctbl" id="sideBody">'+body+'</div>';
 }
 function paintSide(){
@@ -813,7 +820,7 @@ function hrow(o){
   if(sc) src+=' <button class="link srcbtn noprint" tabindex="-1">'+(sc.kind==='input'?'Go to key-in ▸':'View source ▸')+'</button>';
   return '<tr class="'+(o.cls||'')+'"'+(id?' data-id="'+esc(id)+'" data-ref="'+esc(o.ref||'')+'" data-label="'+lab+'" tabindex="0"':'')+(deps.length?' data-deps="'+deps.join(',')+'"':'')+(sc?' data-srck="'+sc.kind+'" data-srcc="'+esc(sc.kind==='input'?sc.field:sc.cells.join('|'))+'" title="'+(sc.kind==='input'?'Click to go to this key-in on the Inputs tab':'Click to show the source data beside this report')+'"':'')+'><td class="ref">'+(o.ref||'')+'</td><td>'+o.label+'</td><td class="formula">'+src+'</td>'+val+'</tr>';
 }
-const hlHint='<div class="hint noprint" style="margin:6px 0 2px">Tip: <b>point</b> at a line to highlight the lines it is calculated from (like F2 in Excel). <b>Click</b> a line that comes from source data to open that table beside the report with the source cells marked in yellow.</div>';
+const hlHint='<div class="hint noprint" style="margin:6px 0 2px">Tip: <b>point</b> at a line to highlight the lines it is calculated from (like F2 in Excel); the formula and amounts appear in the bar under the tabs. <b>Click</b> a line that comes from source data to open that table beside the report with the source cells marked in yellow.</div>';
 const tbSrc=(key,f)=>({kind:'tb',cells:st.map[key].codes.map(c=>'tb:'+c+':'+f)});
 const keyIn=id=>({kind:'input',field:id});
 
@@ -914,7 +921,7 @@ function vHistory(){
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with their amounts in a pop-up – like F2 in Excel. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
    +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
@@ -986,32 +993,25 @@ function cellLabel(c){
   let row=(tr.dataset.rl||tr.cells[0].textContent||'').replace(/\s+/g,' ').trim(); if(row.length>46) row=row.slice(0,44)+'…';
   return '<b>'+esc(row)+'</b>'+(col?' · '+esc(col):'');
 }
-function hlClear(){ if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.getElementById('hltip').style.display='none'; hlRow=null; }
+/* The explanation is shown in a fixed "formula bar" (like Excel's), never on top of the table:
+   #fbar under the tabs for the report / Source data tab, #sideF in the header of the split-screen source panel. */
+const FBAR_IDLE='<span class="idle">Point at an amount to see here how it is calculated.</span>';
+function hlClear(){ if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.querySelectorAll('.fbar').forEach(f=>f.innerHTML=FBAR_IDLE); hlRow=null; }
 function hlShow(row){
   if(row===hlRow) return; hlClear(); hlRow=row; row.classList.add('hl-focus');
   const isRow=row.tagName==='TR', scope=isRow?row.closest('section'):row.closest('.srctbl'), deps=(row.dataset.deps||'').split(isRow?',':'|').filter(Boolean), many=deps.length>8;
   const val=r=>{ if(r.tagName!=='TR') return r.textContent.trim(); const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
-  const name=r=>r.tagName==='TR'?(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(r.dataset.label||''):cellLabel(r);
+  const cut=(t,n)=>t.length>n?t.slice(0,n-1)+'…':t;
+  const name=(r,n)=>r.tagName==='TR'?(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(n?cut(r.dataset.label||'',n):r.dataset.label||''):cellLabel(r);
   let list='', shown=0, found=0;
   deps.forEach((d,i)=>{ const c=many?HL_COLORS[0]:HL_COLORS[i%HL_COLORS.length]; const el=scope.querySelector((isRow?'[data-id="':'[data-cid="')+CSS.escape(d)+'"]');
     if(isRow) row.querySelectorAll('.tok[data-tok="'+CSS.escape(d)+'"]').forEach(t=>{t.classList.add('on'); t.style.setProperty('--pc',c);});
     if(!el) return; found++; el.classList.add('hl-prec'); el.style.setProperty('--pc',c);
-    if(!many||shown<6){ shown++; list+='<div class="tiprow"><span class="chip" style="background:'+c+'"></span><span class="tl">'+name(el)+'</span><span class="tv">'+esc(val(el))+'</span></div>'; } });
-  if(found>shown) list+='<div class="tiprow"><span class="chip" style="background:'+HL_COLORS[0]+'"></span><span class="tl">… and '+(found-shown)+' more highlighted cells</span></div>';
-  const f=isRow?row.querySelector('.formula'):null; const src=isRow?(f?f.innerHTML:esc(row.dataset.src||'')):esc(row.dataset.f||'');
-  const tip=document.getElementById('hltip');
-  tip.innerHTML='<div class="th">'+name(row)+'</div>'+(deps.length?'<div class="tf">= '+src+'</div>'+list+'<div class="tiprow tres"><span class="tl">Result</span><span class="tv">'+esc(val(row))+'</span></div>':'<div class="tf">Input – '+(src||'source data')+'</div><div class="tiprow tres"><span class="tl">Amount</span><span class="tv">'+esc(val(row))+'</span></div>');
-  tip.style.display='block'; hlPlace();
-}
-function hlPlace(){
-  if(!hlRow) return; const tip=document.getElementById('hltip');
-  const cells=hlRow.tagName==='TR'?hlRow.querySelectorAll('td.n'):[], a=(cells.length?cells[cells.length-1]:hlRow).getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
-  let left=Math.max(8,Math.min(a.right-w,window.innerWidth-w-8)), top=a.bottom+6;
-  if(hlRow.tagName!=='TR'&&a.left-w-12>=8){ /* source cell: sit to its left so the cells above and below it stay visible */
-    left=a.left-w-12; top=Math.max(8,Math.min(a.top,window.innerHeight-h-8)); }
-  else if(top+h>window.innerHeight-8){ /* no room below: sit to the left of the amount so the highlighted amounts above stay visible */
-    if(a.left-w-12>=8){ left=a.left-w-12; top=Math.max(8,Math.min(a.bottom-h,window.innerHeight-h-8)); } else top=Math.max(8,a.top-h-6); }
-  tip.style.left=left+'px'; tip.style.top=top+'px';
+    if(!many||shown<3){ shown++; list+='<span class="fitem" style="--pc:'+c+'"><span class="tl">'+name(el,28)+'</span><span class="tv">'+esc(val(el))+'</span></span>'; } });
+  if(found>shown) list+='<span class="fitem" style="--pc:'+HL_COLORS[0]+'"><span class="tl">… and '+(found-shown)+' more highlighted cells</span></span>';
+  const f=isRow?row.querySelector('.formula'):null; let src=isRow?(f?f.innerHTML:esc(row.dataset.src||'')):esc(row.dataset.f||''); src=src.replace(/<button[^>]*>.*?<\/button>/g,'');
+  const bar=document.getElementById(row.closest('#side')?'sideF':'fbar'); if(!bar) return;
+  bar.innerHTML='<div class="f1"><span class="nm">'+name(row)+'</span><span class="eq">'+(deps.length?'= '+src:'Input – '+(src||'source data'))+'</span><span class="res">'+esc(val(row))+'</span></div>'+(list?'<div class="f2">'+list+'</div>':'');
 }
 function hlTarget(el){
   if(!el||!el.closest) return null;
@@ -1020,11 +1020,9 @@ function hlTarget(el){
   const k=el.closest('[data-hl]'); if(k) return sec.querySelector('[data-id="'+CSS.escape(k.dataset.hl)+'"]');
   return el.closest('.hltable tr[data-id]');
 }
-document.addEventListener('mouseover',e=>{ if(e.target.closest&&e.target.closest('#hltip')) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
+document.addEventListener('mouseover',e=>{ if(e.target.closest&&e.target.closest('.fbar')) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
 document.addEventListener('focusin',e=>{ const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') hlClear(); });
-window.addEventListener('scroll',hlPlace,{passive:true}); window.addEventListener('resize',hlPlace);
-document.addEventListener('scroll',e=>{ if(e.target&&e.target.id==='sideBody') hlPlace(); },true);
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
 document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
 document.getElementById('btnPrint').onclick=()=>window.print();
