@@ -63,6 +63,20 @@ tr.sub td{font-weight:600;background:#fafbfc}
 tr.result td{font-weight:700;background:var(--brand-soft);font-size:14px}
 tr.sect td{background:var(--brand);color:#fff;font-weight:600}
 tr.used td{background:#fffbea}
+/* precedent highlighting (F2-style) */
+.hltable tr[data-id]{cursor:default}
+.hltable tr[data-id]:focus{outline:none}
+tr.hl-focus td{background:#fff3c4!important}
+tr.hl-focus td.n{outline:2px solid #1c2733;outline-offset:-2px}
+tr.hl-prec td{background:color-mix(in srgb,var(--pc) 12%,#fff)!important}
+tr.hl-prec td:first-child{box-shadow:inset 4px 0 0 var(--pc)}
+tr.hl-prec td.n{outline:2px solid var(--pc);outline-offset:-2px;color:var(--pc);font-weight:700}
+.tok.on{color:var(--pc);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.kpi[data-hl]{cursor:default} .kpi[data-hl]:hover,.kpi[data-hl]:focus{border-color:var(--brand)}
+#hltip{position:fixed;z-index:15;display:none;background:#fff;border:1px solid #9fb3c1;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:10px 12px;font-size:12px;min-width:260px;max-width:440px;pointer-events:none}
+#hltip .th{font-size:13px;margin-bottom:4px} #hltip .tf{color:var(--muted);margin-bottom:6px}
+#hltip .tiprow{display:flex;gap:8px;align-items:center;padding:2px 0} #hltip .tl{flex:1} #hltip .tv{font-variant-numeric:tabular-nums;white-space:nowrap}
+#hltip .chip{width:10px;height:10px;border-radius:2px;flex:none} #hltip .tres{border-top:1px solid var(--line);margin-top:4px;padding-top:4px;font-weight:700}
 tr.manrow td{color:var(--muted);font-size:12px;font-style:italic;padding-top:2px;padding-bottom:2px}
 select.in{font:inherit;padding:6px 8px;border:1px solid #aab6c1;border-radius:6px;max-width:100%}
 .ref{color:var(--muted);font-size:12px;white-space:nowrap}
@@ -91,7 +105,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 .modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .maptable input{width:100%;text-align:left}
 @media print{
-  header .hbtns,nav,#toast,.noprint,summary{display:none!important}
+  header .hbtns,nav,#toast,#hltip,.noprint,summary{display:none!important}
   body{background:#fff} main{max-width:none;padding:0}
   section[role=tabpanel]{display:none!important}
   section.printme{display:block!important}
@@ -115,6 +129,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
 </header>
 <nav role="tablist" aria-label="Sections" id="nav"></nav>
 <main id="main"></main>
+<div id="hltip" role="tooltip" aria-live="polite"></div>
 <div id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div>
   <h2 id="modalTitle" style="margin:0 0 8px;font-size:16px"></h2><div id="modalBody"></div>
@@ -544,6 +559,7 @@ function renderHeader(){
   const b=document.getElementById('btnFolder'); b.style.display=window.showDirectoryPicker?'':'none'; b.textContent=App.pending?'Reconnect shared folder':App.store.kind==='folder'?'Change folder':'Connect shared folder';
 }
 function render(){
+  hlClear();
   const R=compute(st), notices=buildNotices(st,R,prevResult()); window.__R=R; window.__notices=notices;
   const nErr=notices.filter(n=>n.lv==='err').length, nWarn=notices.filter(n=>n.lv==='warn').length, nInfo=notices.filter(n=>n.lv==='info').length;
   const cl=checklist(R), done=cl.filter(c=>c.done).length;
@@ -645,34 +661,51 @@ function blockedView(title,missing){ return '<div class="card blocked"><h2>'+tit
 function acctDetail(p,field,title){ if(!p.rows.length) return ''; const f=a=>typeof field==='function'?field(a):a[field];
   return '<details><summary>Show accounts ('+p.rows.length+')</summary><table><thead><tr><th>Account</th><th>Code</th><th class="n">'+title+'</th></tr></thead><tbody>'+p.rows.map(a=>'<tr><td>'+esc(a.name)+'</td><td>'+esc(a.code)+'</td>'+cellN(f(a))+'</tr>').join('')+'</tbody></table></details>'; }
 
+/* Report row with Excel-F2-style precedents: data-id = this line, data-deps = the lines it is calculated from. */
+function hrow(o){
+  const id=o.id||o.ref||''; const deps=o.deps||[]; let src=o.src||'';
+  deps.forEach(d=>{ if(d.includes('.')) return; const re=new RegExp('(^|[^A-Za-z0-9])('+d.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')(?![A-Za-z0-9])'); src=src.replace(re,'$1<span class="tok" data-tok="'+d+'">$2</span>'); });
+  const lab=String(o.label).replace(/<[^>]*>/g,'');
+  const val=o.valHtml!==undefined?o.valHtml:(o.amt===undefined?'<td></td>':cellN(o.amt));
+  return '<tr class="'+(o.cls||'')+'"'+(id?' data-id="'+esc(id)+'" data-ref="'+esc(o.ref||'')+'" data-label="'+lab+'" tabindex="0"':'')+(deps.length?' data-deps="'+deps.join(',')+'"':'')+'><td class="ref">'+(o.ref||'')+'</td><td>'+o.label+(o.det||'')+'</td><td class="formula">'+src+'</td>'+val+'</tr>';
+}
+const hlHint='<div class="hint noprint" style="margin:6px 0 2px">Tip: point at any line (or move to it with the Tab key) to highlight the lines it is calculated from, like F2 in Excel.</div>';
+
 function vCIT(R){
   if(!R.citReady) return blockedView('Corporate Income Tax',R.missing);
   const T=R.tb,C=R.cit,m=st.map; const y=' FY'+fy();
-  const r=(ref,label,src,amt,cls,det)=>'<tr class="'+(cls||'')+'"><td class="ref">'+ref+'</td><td>'+label+(det||'')+'</td><td class="formula">'+src+'</td>'+cellN(amt)+'</tr>';
   const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
   const detFor=a=>a.det==='entertainment'||a.det==='taxDues'?acctDetail(T[a.det],'ytdDr','Dr (YTD)'):'<details><summary>Where does this come from?</summary><div class="hint" style="margin:4px 0">See <button class="link" data-view="'+a.det+'">'+KIND_LABEL[a.det]+' table</button> in Source data.</div></details>';
+  const adjRows=C.adj.map(a=>{
+    if(!a.manual.length) return hrow({ref:a.ref,label:esc(a.label),src:esc(a.src),amt:a.amt,det:a.det?detFor(a):''});
+    const sub=[a.ref+'.b',...a.manual.map((x,j)=>a.ref+'.m'+j)];
+    return hrow({ref:a.ref,label:esc(a.label),src:esc(a.src)+' + manual adjustment',amt:a.amt,det:a.det?detFor(a):'',deps:sub})
+      +hrow({id:a.ref+'.b',label:'↳ From uploaded data',src:esc(a.src),amt:a.base,cls:'manrow'})
+      +a.manual.map((x,j)=>hrow({id:a.ref+'.m'+j,label:'↳ Manual adjustment: '+esc(x.desc),src:'Key-in on the Inputs tab',amt:x.amt,cls:'manrow'})).join('');
+  }).join('');
+  const kpi=(id,l,v)=>'<div class="kpi" data-hl="'+id+'" tabindex="0"><div class="l">'+l+'</div><div class="v">'+fmt(v)+'</div></div>';
   return '<div class="card"><h2>Corporate Income Tax computation'+y+'</h2><div class="hint">'+esc(st.tb.company||'')+(st.tb.period?' · '+esc(st.tb.period):'')+' · All amounts in SAR</div>'
-   +'<div class="kpis"><div class="kpi"><div class="l">Net profit before tax</div><div class="v">'+fmt(T.netProfit)+'</div></div><div class="kpi"><div class="l">Taxable profit</div><div class="v">'+fmt(C.taxable)+'</div></div><div class="kpi"><div class="l">Income tax ('+pct(R.rate)+')</div><div class="v">'+fmt(C.tax)+'</div></div><div class="kpi"><div class="l">Due to ZATCA</div><div class="v">'+fmt(C.due)+'</div></div></div>'
-   +'<table><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
+   +'<div class="kpis">'+kpi('NP','Net profit before tax',T.netProfit)+kpi('TP','Taxable profit',C.taxable)+kpi('TAX','Income tax ('+pct(R.rate)+')',C.tax)+kpi('DUE','Due to ZATCA',C.due)+'</div>'+hlHint
+   +'<table class="hltable"><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
    +sect('Step 1 · Net profit before tax (from Trial Balance)')
-   +r('I1',esc(m.revenue.label),'Cr (YTD) of '+esc(m.revenue.codes.join(', ')),T.revenue.amount)
-   +r('I2',esc(m.otherIncome.label),'Cr (YTD) of '+esc(m.otherIncome.codes.join(', ')),T.otherIncome.amount,'',acctDetail(T.otherIncome,'ytdCr','Cr (YTD)'))
-   +r('I','Total income','I1 + I2',T.income,'sub')
-   +r('E1',esc(m.cost.label),'Dr (YTD) of '+esc(m.cost.codes.join(', ')),T.cost.amount)
-   +r('E2',esc(m.ga.label),'Dr (YTD) of '+esc(m.ga.codes.join(', ')),T.ga.amount)
-   +r('E3',esc(m.nonOpExp.label),'Dr (YTD) of '+esc(m.nonOpExp.codes.join(', ')),T.nonOpExp.amount)
-   +r('E4',esc(m.interest.label),'Dr (YTD) of '+esc(m.interest.codes.join(', ')),T.interest.amount)
-   +r('E','Total expenses','E1 + E2 + E3 + E4',T.expense,'sub')
-   +r('NP','Net profit before tax','I − E',T.netProfit,'total')
+   +hrow({ref:'I1',label:esc(m.revenue.label),src:'Cr (YTD) of '+esc(m.revenue.codes.join(', ')),amt:T.revenue.amount})
+   +hrow({ref:'I2',label:esc(m.otherIncome.label),src:'Cr (YTD) of '+esc(m.otherIncome.codes.join(', ')),amt:T.otherIncome.amount,det:acctDetail(T.otherIncome,'ytdCr','Cr (YTD)')})
+   +hrow({ref:'I',label:'Total income',src:'I1 + I2',amt:T.income,cls:'sub',deps:['I1','I2']})
+   +hrow({ref:'E1',label:esc(m.cost.label),src:'Dr (YTD) of '+esc(m.cost.codes.join(', ')),amt:T.cost.amount})
+   +hrow({ref:'E2',label:esc(m.ga.label),src:'Dr (YTD) of '+esc(m.ga.codes.join(', ')),amt:T.ga.amount})
+   +hrow({ref:'E3',label:esc(m.nonOpExp.label),src:'Dr (YTD) of '+esc(m.nonOpExp.codes.join(', ')),amt:T.nonOpExp.amount})
+   +hrow({ref:'E4',label:esc(m.interest.label),src:'Dr (YTD) of '+esc(m.interest.codes.join(', ')),amt:T.interest.amount})
+   +hrow({ref:'E',label:'Total expenses',src:'E1 + E2 + E3 + E4',amt:T.expense,cls:'sub',deps:['E1','E2','E3','E4']})
+   +hrow({ref:'NP',label:'Net profit before tax',src:'I − E',amt:T.netProfit,cls:'total',deps:['I','E']})
    +sect('Step 2 · Tax adjustments (disallowed expenses and timing differences)')
-   +C.adj.map(a=>r(a.ref,esc(a.label),esc(a.src)+(a.manual.length?' + manual adjustment':''),a.amt,'',a.det?detFor(a):'')+(a.manual.length?r('','↳ From uploaded data','',a.base,'manrow')+a.manual.map(m=>r('','↳ Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt,'manrow')).join(''):'')).join('')
-   +r('A','Total adjustments','Sum of lines A1 to A'+C.adj.length,C.totalAdj,'sub')
+   +adjRows
+   +hrow({ref:'A',label:'Total adjustments',src:C.adj.map(a=>a.ref).join(' + '),amt:C.totalAdj,cls:'sub',deps:C.adj.map(a=>a.ref)})
    +sect('Step 3 · Taxable profit and income tax')
-   +r('TP','Taxable net adjusted profit','NP + A',C.taxable,'total')
-   +r('TAX','Corporate income tax for the year','TP × '+pct(R.rate),C.tax,'result')
+   +hrow({ref:'TP',label:'Taxable net adjusted profit',src:'NP + A',amt:C.taxable,cls:'total',deps:['NP','A']})
+   +hrow({ref:'TAX',label:'Corporate income tax for the year',src:'TP × '+pct(R.rate)+' tax rate',amt:C.tax,cls:'result',deps:['TP']})
    +sect('Step 4 · Amount payable')
-   +r('P','Less: prepaid tax paid (advance payments)','Credits for the period of '+esc(m.prepaidTax.codes.join(', ')),C.prepaid,'',acctDetail(T.prepaidTax,'cr','Credits for the period'))
-   +r('DUE','Due to ZATCA','TAX − P',C.due,'result')
+   +hrow({ref:'P',label:'Less: prepaid tax paid (advance payments)',src:'Credits for the period of '+esc(m.prepaidTax.codes.join(', ')),amt:C.prepaid,det:acctDetail(T.prepaidTax,'cr','Credits for the period')})
+   +hrow({ref:'DUE',label:'Due to ZATCA',src:'TAX − P',amt:C.due,cls:'result',deps:['TAX','P']})
    +'</tbody></table>'
    +(T.bookedCIT.amount?'<div class="hint" style="margin-top:10px">For reference: corporate income tax expense currently booked in the trial balance is '+fmt(T.bookedCIT.amount)+'. The computation above is based on the uploaded data; the difference to adjust in the books is '+fmt(C.tax-T.bookedCIT.amount)+'.</div>':'')+'</div>';
 }
@@ -680,33 +713,40 @@ function vCIT(R){
 function vDT(R){
   if(!R.dtReady) return blockedView('Deferred Tax',R.dtMissing);
   const D=R.dt, P=R.ppe, y=fy(), d=y?'31 December '+y:'year end', pd=y?'31 December '+(y-1):'prior year end';
-  const r=(ref,label,src,amt,cls)=>'<tr class="'+(cls||'')+'"><td class="ref">'+ref+'</td><td>'+label+'</td><td class="formula">'+src+'</td>'+(amt===undefined?'<td></td>':cellN(amt))+'</tr>';
   const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
+  const mFAids=D.mFA.map((x,j)=>'N1m.'+j), mPvIds=D.mPv.map((x,j)=>'B1.m'+j);
+  const kpi=(id,l,v)=>'<div class="kpi" data-hl="'+id+'" tabindex="0"><div class="l">'+l+'</div><div class="v">'+fmt(v)+'</div></div>';
   return '<div class="card"><h2>Computation of deferred tax as of '+d+'</h2><div class="hint">'+esc(st.tb&&st.tb.company||'')+' · Balance sheet approach · All amounts in SAR</div>'
-   +'<div class="kpis"><div class="kpi"><div class="l">Net deferred tax position (C)</div><div class="v">'+fmt(D.net)+'</div></div><div class="kpi"><div class="l">Prior year per audited FS (D)</div><div class="v">'+fmt(D.prior)+'</div></div><div class="kpi"><div class="l">Deferred tax credit / (charge) for the year (E)</div><div class="v">'+fmt(D.movement)+'</div></div></div>'
-   +'<table><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
-   +'<tr><td class="ref"></td><td>Non-Saudi shareholding percentage (income tax)</td><td class="formula">Tax settings</td><td class="n">'+pct(R.share)+'</td></tr>'
-   +'<tr><td class="ref"></td><td>Applicable tax rate</td><td class="formula">Tax settings</td><td class="n">'+pct(R.rate)+'</td></tr>'
+   +'<div class="kpis">'+kpi('C','Net deferred tax position (C)',D.net)+kpi('D','Prior year per audited FS (D)',D.prior)+kpi('E','Deferred tax credit / (charge) for the year (E)',D.movement)+'</div>'+hlHint
+   +'<table class="hltable"><thead><tr><th style="width:44px">Ref</th><th>Line</th><th>How it is calculated</th><th class="n">SAR</th></tr></thead><tbody>'
+   +hrow({ref:'SH',label:'Non-Saudi shareholding percentage (income tax)',src:'Tax settings on the Inputs tab',valHtml:'<td class="n">'+pct(R.share)+'</td>'})
+   +hrow({ref:'TR',label:'Applicable tax rate',src:'Tax settings on the Inputs tab',valHtml:'<td class="n">'+pct(R.rate)+'</td>'})
    +sect('Note 1 · Fixed asset difference')
-   +r('N1a','Tax base: ending balance carried forward (all groups)','PPE – Depreciation: "Ending balance carried forward" total',P.tot.cf)
-   +r('N1b','Add: 50% of current year additions','50% × '+fmt(P.tot.addCur),0.5*P.tot.addCur)
-   +r('N1c','Less: 50% of current year considerations','50% × '+fmt(P.tot.consCur),-0.5*P.tot.consCur)
-   +D.mFA.map(m=>r('N1m','Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt)).join('')
-   +r('N1d','Fixed assets as per the tax working','N1a + N1b + N1c'+(D.mFA.length?' + N1m':''),D.taxFA,'sub')
-   +r('N1e','Fixed assets as per the Financial statements','Key-in on the Inputs tab',D.fsFA)
-   +r('N1','Difference (tax base − financial statements)','N1d − N1e',D.diff,'sub')
+   +hrow({ref:'N1a',label:'Tax base: ending balance carried forward (all groups)',src:'PPE – Depreciation: "Ending balance carried forward" total',amt:P.tot.cf})
+   +hrow({ref:'N1b',label:'Add: 50% of current year additions',src:'50% × '+fmt(P.tot.addCur)+' (PPE – Depreciation: current year additions)',amt:0.5*P.tot.addCur})
+   +hrow({ref:'N1c',label:'Less: 50% of current year considerations',src:'50% × '+fmt(P.tot.consCur)+' (PPE – Depreciation: current year considerations)',amt:-0.5*P.tot.consCur})
+   +D.mFA.map((x,j)=>hrow({id:mFAids[j],ref:'N1m',label:'Manual adjustment: '+esc(x.desc),src:'Key-in on the Inputs tab',amt:x.amt})).join('')
+   +hrow({ref:'N1d',label:'Fixed assets as per the tax working',src:'N1a + N1b + N1c'+(D.mFA.length?' + N1m':''),amt:D.taxFA,cls:'sub',deps:['N1a','N1b','N1c',...mFAids]})
+   +hrow({ref:'N1e',label:'Fixed assets as per the Financial statements',src:'Key-in on the Inputs tab',amt:D.fsFA})
+   +hrow({ref:'N1',label:'Difference (tax base − financial statements)',src:'N1d − N1e',amt:D.diff,cls:'sub',deps:['N1d','N1e']})
    +sect('Deferred tax liabilities as at '+d)
-   +r('L1','Fixed asset difference (Note 1)','− N1',D.dtlBase)
-   +r('A','Deferred tax liabilities (A)','L1 × '+pct(R.rate),D.dtl,'sub')
+   +hrow({ref:'L1',label:'Fixed asset difference (Note 1)',src:'− N1',amt:D.dtlBase,deps:['N1']})
+   +hrow({ref:'A',label:'Deferred tax liabilities (A)',src:'L1 × TR ('+pct(R.rate)+')',amt:D.dtl,cls:'sub',deps:['L1','TR']})
    +sect('Deferred tax assets as at '+d)
-   +r('B1','Provisions (Note 2)','Provision Movement: total ending balance'+(D.mPv.length?' + manual adjustment':''),D.dtaBase)+(D.mPv.length?r('','↳ From uploaded data','',R.prov.end,'manrow')+D.mPv.map(m=>r('','↳ Manual adjustment: '+esc(m.desc),'Key-in on the Inputs tab',m.amt,'manrow')).join(''):'')
-   +r('B','Deferred tax assets (B)','B1 × '+pct(R.rate),D.dta,'sub')
+   +(D.mPv.length
+     ?hrow({ref:'B1',label:'Provisions (Note 2)',src:'Note 2 total + manual adjustment',amt:D.dtaBase,deps:['B1.b',...mPvIds]})
+       +hrow({id:'B1.b',label:'↳ From uploaded data',src:'Note 2 total (Provision Movement: ending balance)',amt:R.prov.end,cls:'manrow',deps:['N2.T']})
+       +D.mPv.map((x,j)=>hrow({id:mPvIds[j],label:'↳ Manual adjustment: '+esc(x.desc),src:'Key-in on the Inputs tab',amt:x.amt,cls:'manrow'})).join('')
+     :hrow({ref:'B1',label:'Provisions (Note 2)',src:'Note 2 total (Provision Movement: ending balance)',amt:D.dtaBase,deps:['N2.T']}))
+   +hrow({ref:'B',label:'Deferred tax assets (B)',src:'B1 × TR ('+pct(R.rate)+')',amt:D.dta,cls:'sub',deps:['B1','TR']})
    +sect('Net position and movement')
-   +r('C','Net deferred tax position as of '+d,'(B − A) × '+pct(R.share)+' shareholding',D.net,'total')
-   +r('D','Deferred tax as of '+pd+' as per audited FS','Key-in on the Inputs tab',D.prior)
-   +r('E','Deferred tax credit / (charge) during the year','C − D',D.movement,'result')
+   +hrow({ref:'C',label:'Net deferred tax position as of '+d,src:'(B − A) × SH ('+pct(R.share)+')',amt:D.net,cls:'total',deps:['B','A','SH']})
+   +hrow({ref:'D',label:'Deferred tax as of '+pd+' as per audited FS',src:'Key-in on the Inputs tab',amt:D.prior})
+   +hrow({ref:'E',label:'Deferred tax credit / (charge) during the year',src:'C − D',amt:D.movement,cls:'result',deps:['C','D']})
    +'</tbody></table>'
-   +'<h3>Note 2 · Provisions</h3><table style="max-width:640px"><thead><tr><th>Provision</th><th class="n">Ending balance</th></tr></thead><tbody>'+R.prov.items.map(x=>'<tr><td>'+esc(x.name)+'</td>'+cellN(x.end)+'</tr>').join('')+'<tr class="total"><td>Total (B1)</td>'+cellN(R.prov.end)+'</tr></tbody></table>'
+   +'<h3>Note 2 · Provisions</h3><table class="hltable" style="max-width:640px"><thead><tr><th>Provision</th><th class="n">Ending balance</th></tr></thead><tbody>'
+   +R.prov.items.map((x,i)=>'<tr data-id="N2.'+i+'" data-ref="" data-label="'+esc(x.name)+'" tabindex="0" data-src="Provision Movement: ending balance"><td>'+esc(x.name)+'</td>'+cellN(x.end)+'</tr>').join('')
+   +'<tr class="total" data-id="N2.T" data-ref="" data-label="Note 2 total" tabindex="0" data-deps="'+R.prov.items.map((x,i)=>'N2.'+i).join(',')+'"><td>Total (B1)</td>'+cellN(R.prov.end)+'</tr></tbody></table>'
    +'<div class="hint" style="margin-top:8px">The provision movement is based on all provisions disclosed in the Company books as confirmed by the Company. The impact of IFRS adjustments is already incorporated in the ending balance of provisions.</div>'
    +(R.tb&&R.tb.bookedDT.amount?'<div class="hint" style="margin-top:8px">For reference: deferred tax currently booked in the trial balance is '+fmt(R.tb.bookedDT.amount)+' credit. The computation above is based on the uploaded data; the difference to adjust in the books is '+fmt(D.movement-R.tb.bookedDT.amount)+'.</div>':'')+'</div>';
 }
@@ -728,7 +768,7 @@ function vHistory(){
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with their amounts in a pop-up – like F2 in Excel.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year.</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
    +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
@@ -790,6 +830,41 @@ function bind(){
       snapshot(); const keep=st.savedAt; st=normalize(j.state); st.savedAt=keep; save(); render(); toast('Data file imported into FY'+App.year+'.',true); }
     catch(x){ toast('This file is not a data file downloaded from this app. Choose a file named like SGC_Arabia_CIT_FY2025.json.'); } };
 }
+/* ---------- Precedent highlighting (like F2 in Excel) ---------- */
+const HL_COLORS=['#1f5fa8','#c0392b','#7b3fa0','#1b7f4b','#b35c00','#0f7c8c','#a8326e','#5b6b00'];
+let hlRow=null;
+function hlClear(){ if(!hlRow) return; document.querySelectorAll('.hl-focus,.hl-prec').forEach(e=>{e.classList.remove('hl-focus','hl-prec'); e.style.removeProperty('--pc');}); document.querySelectorAll('.tok.on').forEach(t=>t.classList.remove('on')); document.getElementById('hltip').style.display='none'; hlRow=null; }
+function hlShow(row){
+  if(row===hlRow) return; hlClear(); hlRow=row; row.classList.add('hl-focus');
+  const scope=row.closest('section'), deps=(row.dataset.deps||'').split(',').filter(Boolean), val=r=>{ const c=r.querySelectorAll('td.n'); return c.length?c[c.length-1].textContent:''; };
+  const name=r=>(r.dataset.ref?'<b>'+esc(r.dataset.ref)+'</b> ':'')+esc(r.dataset.label||'');
+  let list='';
+  deps.forEach((d,i)=>{ const c=HL_COLORS[i%HL_COLORS.length]; const el=scope.querySelector('[data-id="'+CSS.escape(d)+'"]');
+    row.querySelectorAll('.tok[data-tok="'+CSS.escape(d)+'"]').forEach(t=>{t.classList.add('on'); t.style.setProperty('--pc',c);});
+    if(!el) return; el.classList.add('hl-prec'); el.style.setProperty('--pc',c);
+    list+='<div class="tiprow"><span class="chip" style="background:'+c+'"></span><span class="tl">'+name(el)+'</span><span class="tv">'+esc(val(el))+'</span></div>'; });
+  const f=row.querySelector('.formula'); const src=f?f.innerHTML:esc(row.dataset.src||'');
+  const tip=document.getElementById('hltip');
+  tip.innerHTML='<div class="th">'+name(row)+'</div>'+(deps.length?'<div class="tf">= '+src+'</div>'+list+'<div class="tiprow tres"><span class="tl">Result</span><span class="tv">'+esc(val(row))+'</span></div>':'<div class="tf">Input – '+(src||'source data')+'</div><div class="tiprow tres"><span class="tl">Amount</span><span class="tv">'+esc(val(row))+'</span></div>');
+  tip.style.display='block'; hlPlace();
+}
+function hlPlace(){
+  if(!hlRow) return; const tip=document.getElementById('hltip');
+  const cells=hlRow.querySelectorAll('td.n'), a=(cells.length?cells[cells.length-1]:hlRow).getBoundingClientRect(), w=tip.offsetWidth, h=tip.offsetHeight;
+  let left=Math.max(8,Math.min(a.right-w,window.innerWidth-w-8)), top=a.bottom+6;
+  if(top+h>window.innerHeight-8){ /* no room below: sit to the left of the amount column so the highlighted amounts above stay visible */
+    if(a.left-w-12>=8){ left=a.left-w-12; top=Math.max(8,Math.min(a.bottom-h,window.innerHeight-h-8)); } else top=Math.max(8,a.top-h-6); }
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+}
+function hlTarget(el){
+  if(!el||!el.closest) return null; const sec=el.closest('section'); if(!sec) return null;
+  const k=el.closest('[data-hl]'); if(k) return sec.querySelector('[data-id="'+CSS.escape(k.dataset.hl)+'"]');
+  return el.closest('.hltable tr[data-id]');
+}
+document.addEventListener('mouseover',e=>{ if(e.target.closest&&e.target.closest('#hltip')) return; const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
+document.addEventListener('focusin',e=>{ const r=hlTarget(e.target); r?hlShow(r):hlClear(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') hlClear(); });
+window.addEventListener('scroll',hlPlace,{passive:true}); window.addEventListener('resize',hlPlace);
 window.addEventListener('dragover',e=>e.preventDefault()); window.addEventListener('drop',e=>e.preventDefault());
 document.getElementById('nav').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ids=['inputs','data','cit','dt','notices','history','help']; const i=(ids.indexOf(tab)+(e.key==='ArrowRight'?1:ids.length-1))%ids.length; go(ids[i]); document.getElementById('tab-'+ids[i]).focus(); });
 document.getElementById('btnPrint').onclick=()=>window.print();

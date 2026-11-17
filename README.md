@@ -43,6 +43,12 @@
   FY2026/...
 ```
 
+## 근거 표시 (엑셀 F2처럼)
+
+- Corporate Income Tax·Deferred Tax 표에서 줄(또는 위쪽 요약 칸)에 마우스를 올리면 그 숫자의 근거가 되는 줄이 색깔 테두리로 표시된다.
+- 산식(How it is calculated)의 Ref도 같은 색으로 바뀌고, 작은 창에 근거 줄의 금액과 결과가 함께 나온다.
+- 키보드 Tab으로 줄을 옮겨도 똑같이 표시되고, Esc를 누르면 사라진다.
+
 ## 수동 조정 (Manual adjustments)
 
 - 기본은 수동 조정 없이 올린 자료를 그대로 계산한다.
@@ -90,3 +96,4 @@ python3 tests/verify.py <Corporate_Income_Tax_Calculation_2025.xlsx>
 - 2026-11-16 최초 작성 (2025 워킹 엑셀 기준, 엑셀 값과 일치 검증)
 - 2026-11-16 수동 반올림 조정 제거, 팀 공유 폴더 저장·연도별 History·Final 잠금 추가, 파일명을 index.html로 변경
 - 2026-11-16 수동 조정 키인(Manual adjustments) 추가
+- 2026-11-17 마우스를 올리면 근거 줄을 색깔로 표시하는 기능 추가 (엑셀 F2 방식)
