@@ -561,6 +561,10 @@ async function deleteYears(ys){
   render();
   toast((done.length?'Deleted '+done.map(y=>''+lab(y)).join(', ')+'. A copy was kept in the "_deleted" folder'+(App.store.kind==='folder'?' of the shared folder':'')+'.':'')+(failed.length?' Could not delete: '+failed.join('; ')+'.':''));
 }
+const isEmptyState=s=>!s||(!s.tb&&!s.prov&&!s.ppe&&!s.guar&&!(s.manual||[]).length&&(s.keyins.fsFA===''||s.keyins.fsFA==null)&&(s.keyins.priorDT===''||s.keyins.priorDT==null));
+const sameData=(a,b)=>{ const f=x=>JSON.stringify(Object.assign({},x,{savedAt:null})); return !!a&&!!b&&f(a)===f(b); };
+async function copyLocalToStore(n){ const d=await localStore.read(n+'/data.json'); if(!d) return; await App.store.write(n+'/data.json',d);
+  for(const f of await localStore.list(n+'/source')){ const u=await localStore.read(n+'/source/'+f); if(u) await App.store.write(n+'/source/'+f,u); } }
 /* Pick up what colleagues saved: re-read the shared folder (every 20 seconds, when the window gets focus, or with the Refresh button). */
 function refresh(manual){ saveQ=saveQ.then(()=>doRefresh(manual)).catch(e=>{ if(manual) toast('The shared folder could not be read: '+(e&&e.message||e)); }); return saveQ; }
 async function doRefresh(manual){
@@ -629,13 +633,21 @@ async function connectFolder(handle){
     await saveQ;
     const wasLocal=App.store.kind==='local';
     App.store=folderStore(handle); App.pending=null; try{ await idb.set('dirHandle',handle); }catch(e){}
-    await loadAll(); let moved=[];
-    if(wasLocal){ try{ for(const n of await localStore.list('')){ const m=/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n); if(!m) continue; const k=mk(+m[1],m[2]?+m[2]:0); if(App.years.includes(k)) continue;
-        const d=await localStore.read(n+'/data.json'); if(!d) continue; await App.store.write(n+'/data.json',d);
-        for(const f of await localStore.list(n+'/source')){ const u=await localStore.read(n+'/source/'+f); if(u) await App.store.write(n+'/source/'+f,u); }
-        moved.push(k); } if(moved.length) await loadAll(); }catch(e){} }
+    await loadAll(); let moved=[], clash=[];
+    if(wasLocal){ try{ for(const n of await localStore.list('')){ const m=/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n); if(!m) continue; const k=mk(+m[1],m[2]?+m[2]:0);
+        const d=await localStore.read(n+'/data.json'); if(!d) continue;
+        if(App.years.includes(k)){ let loc=null; try{ loc=normalize(JSON.parse(tdec.decode(d)).state); }catch(e){}
+          if(!loc||isEmptyState(loc)||sameData(loc,App.hist[k])){ await localStore.remove(n); continue; }   // nothing in this browser worth copying
+          if(!isEmptyState(App.hist[k])){ clash.push(k); continue; } }             // both have data: ask before replacing
+        await copyLocalToStore(n); await localStore.remove(n); moved.push(k); }   // it now lives in the shared folder
+      if(moved.length) await loadAll(); }catch(e){} }
     App.year=null; st=blank(); if(App.years.length) await openYear(moved.length?moved[0]:App.years[0]);
-    tab=App.years.length?tab:'inputs'; render(); toast('Connected to shared folder: '+handle.name+(moved.length?'. Copied to the shared folder (they were saved in this browser only): '+moved.map(lab).join(', ')+'.':App.years.length?'':' (no saved records yet)'));
+    tab=App.years.length?tab:'inputs'; render();
+    if(clash.length) confirmBox('Replace the shared '+clash.map(lab).join(', ')+'?','This browser holds its own version of '+clash.map(lab).join(', ')+' (saved before the shared folder was connected), and the shared folder already has data for '+(clash.length>1?'them':'it')+'. Cancel keeps the shared version. Replace puts this browser\'s version in the shared folder for everyone (the current shared version is kept in "_deleted").','Replace with this browser\'s version',async()=>{
+      await saveQ; const stamp=new Date().toISOString().slice(0,19).replace(/[-:T]/g,'');
+      for(const k of clash){ const dir=yearDir(k), d=await App.store.read(dir+'/data.json'); if(d) await App.store.write('_deleted/'+dir+'_'+stamp+'/data.json',d); await copyLocalToStore(dir); await localStore.remove(dir); }
+      await loadAll(); await openYear(clash[0]); render(); toast('Shared folder now holds this browser\'s version of '+clash.map(lab).join(', ')+'.'); });
+    toast('Connected to shared folder: '+handle.name+(moved.length?'. Copied to the shared folder (they were saved in this browser only): '+moved.map(lab).join(', ')+'.':App.years.length?'':' (no saved records yet)'));
   }catch(e){
     if(e.name==='AbortError'&&step==='pick') return;
     const why=e.name==='SecurityError'||e.name==='NotAllowedError'?'The browser or a company policy blocked access to this folder.':e.name==='NoModificationAllowedError'||e.name==='InvalidModificationError'?'The folder is read-only for this Windows user (the share permission must be Read/Write).':'The folder could not be opened.';
@@ -992,10 +1004,10 @@ function vNotices(ns){
 
 function vHistory(){
   const rows=App.years.map(y=>{ const s=y===App.year?st:App.hist[y]; if(!s) return ''; const R=compute(s); const v=x=>x==null?'<td class="n">–</td>':cellN(x);
-    return '<tr class="'+(y===App.year?'used':'')+'"><td class="noprint"><input type="checkbox" class="hsel" data-y="'+y+'" aria-label="Select '+lab(y)+'"'+(histSel.has(y)&&!s.final?' checked':'')+(s.final?' disabled title="Final years cannot be deleted. Unlock the year first."':'')+'></td><td style="white-space:nowrap"><b>'+lab(y)+'</b>'+(y===App.year?' <span class="tag use">open now</span>':'')+'</td><td>'+(s.final?'<span class="tag use">Final</span>':(R.citReady&&R.dtReady?'In progress – all inputs provided':'In progress – inputs missing'))+'</td>'
-      +v(R.tb?R.tb.netProfit:null)+v(R.cit?R.cit.taxable:null)+v(R.cit?R.cit.tax:null)+v(R.cit?R.cit.due:null)+v(R.dt?R.dt.net:null)+v(R.dt?R.dt.movement:null)+'<td style="white-space:nowrap">'+esc(when(s.savedAt))+'</td><td class="noprint">'+(y===App.year?'':'<button data-open="'+y+'">Open</button>')+'</td></tr>'; }).join('');
+    return '<tr class="'+(y===App.year?'used':'')+'"><td class="noprint"><input type="checkbox" class="hsel" data-y="'+y+'" aria-label="Select '+lab(y)+'"'+(histSel.has(y)&&!s.final?' checked':'')+(s.final?' disabled title="Final years cannot be deleted. Unlock the year first."':'')+'></td><td style="white-space:nowrap"><b>'+lab(y)+'</b>'+(y===App.year?' <span class="tag use">open now</span>':'')+'</td><td class="noprint" style="white-space:nowrap">'+(y===App.year?'<button data-tab="'+(R.citReady?'cit':'inputs')+'">'+(R.citReady?'View results':'Go to Inputs')+'</button>':'<button class="primary" data-open="'+y+'">Open</button>')+'</td><td>'+(s.final?'<span class="tag use">Final</span>':(R.citReady&&R.dtReady?'In progress – all inputs provided':'In progress – inputs missing'))+'</td>'
+      +v(R.tb?R.tb.netProfit:null)+v(R.cit?R.cit.taxable:null)+v(R.cit?R.cit.tax:null)+v(R.cit?R.cit.due:null)+v(R.dt?R.dt.net:null)+v(R.dt?R.dt.movement:null)+'<td style="white-space:nowrap">'+esc(when(s.savedAt))+'</td></tr>'; }).join('');
   return '<div class="card"><h2>History – all saved periods</h2><div class="hint" style="margin-bottom:10px">'+(App.store.kind==='folder'?'Saved in the shared folder "'+esc(App.store.name)+'" – everyone who connects the same folder sees the same years. Each record has its own folder (FY2025 for the year-end closing, FY2026-M03 for January to March 2026, …) with the data and a copy of the uploaded Excel files in "source".':'Saved in this browser only. Connect the shared folder (top right) so the whole team can see these years.')+'</div>'
-   +(rows?'<div class="scroll" style="max-height:none"><table><thead><tr><th class="noprint" style="width:30px"><span class="hint" title="Select years to delete">Select</span></th><th>Period</th><th>Status</th><th class="n">Net profit before tax</th><th class="n">Taxable profit</th><th class="n">Income tax</th><th class="n">Due to ZATCA</th><th class="n">Net deferred tax</th><th class="n">Deferred tax movement</th><th>Last saved</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="blocked"><b>No fiscal year has been saved yet.</b><div class="hint" style="margin:6px 0 12px">Start a year on the Inputs tab; it will appear here.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>')
+   +(rows?'<div class="scroll" style="max-height:none"><table><thead><tr><th class="noprint" style="width:30px"><span class="hint" title="Select years to delete">Select</span></th><th>Period</th><th class="noprint"></th><th>Status</th><th class="n">Net profit before tax</th><th class="n">Taxable profit</th><th class="n">Income tax</th><th class="n">Due to ZATCA</th><th class="n">Net deferred tax</th><th class="n">Deferred tax movement</th><th>Last saved</th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="blocked"><b>No fiscal year has been saved yet.</b><div class="hint" style="margin:6px 0 12px">Start a year on the Inputs tab; it will appear here.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>')
    +'<div class="noprint" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="btnNewYear">＋ New period</button>'+(rows?'<button class="danger" id="btnDelYears" disabled title="Tick the years to delete first">Delete selected</button>':'')+(App.year!=null?'<button id="btnExport" title="Download a backup copy of the open year">Download '+lab(App.year)+' data file</button><button id="btnImport" title="Replace the open year with a data file downloaded from this app">Import data file into '+lab(App.year)+'</button>':'')+'<input type="file" id="importFile" accept=".json" hidden></div></div>';
 }
 
