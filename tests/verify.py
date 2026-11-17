@@ -170,10 +170,26 @@ with sync_playwright() as p:
     pg.wait_for_timeout(300); pg.click('#tab-history'); pg.wait_for_timeout(100)
     check('history lists FY2026 and FY2025',pg.locator('#main table tbody tr').filter(has_text='FY20').count()>=2)
     if shots: pg.screenshot(path=str(shots/'history.png'),full_page=True)
+    print('\n== Monthly records next to the year-end record ==')
+    import tempfile; mwb=openpyxl.load_workbook(xlsx,data_only=True); n=0
+    for row in mwb[cit.title].iter_rows(min_row=1,max_row=6):
+        for c in row:
+            if isinstance(c.value,str) and 'Date range' in c.value: c.value=c.value.replace('31/12/2025','31/03/2025'); n+=1
+    mx=pathlib.Path(tempfile.mkdtemp())/'TB_2025_March.xlsx'; mwb.save(mx)
+    pg.select_option('#yearSel','new'); pg.fill('#newYear','2025'); pg.select_option('#newPeriod','3'); pg.click('#btnStartYear'); pg.wait_for_selector('#fileIn',state='attached')
+    check('monthly record FY2025 Mar starts empty and separate from FY2025',n==1 and pg.evaluate("window.__app.App.year")==2025.03 and pg.evaluate("window.__app.state().tb")is None)
+    pg.set_input_files('#fileIn',str(xlsx)); pg.wait_for_function("document.getElementById('toastMsg').textContent.includes('NOT loaded')")
+    check('full-year trial balance refused in the March record',pg.evaluate("window.__app.state().tb")is None)
+    pg.set_input_files('#fileIn',str(mx)); pg.wait_for_function("window.__app.state().tb!==null"); pg.wait_for_timeout(400)
+    pg.click('#tab-dt'); pg.click('#tab-history'); pg.wait_for_timeout(100)
+    labels=pg.evaluate("[...document.querySelectorAll('#main section:not([style*=\"none\"]) tbody tr td:nth-child(2) b')].map(e=>e.textContent)")
+    check('History lists the monthly record beside the year-end record: '+str(labels),labels==['FY2026','FY2025','FY2025 Mar'])
+    check('year-end FY2025 data was not overwritten',abs(pg.evaluate("(()=>{const s=window.__app.App.hist[2025];return s.keyins.fsFA})()")-dt['B28'].value)<0.001)
+    if shots: pg.screenshot(path=str(shots/'history_monthly.png'),full_page=True)
     check('Delete button is disabled until a year is ticked',pg.locator('#btnDelYears').is_disabled())
-    pg.check('.hsel[data-y="2026"]'); pg.click('#btnDelYears'); pg.click('#modalOk'); pg.wait_for_function("window.__app.App.years.length===1")
+    pg.check('.hsel[data-y="2026"]'); pg.check('.hsel[data-y="2025.03"]'); pg.click('#btnDelYears'); pg.click('#modalOk'); pg.wait_for_function("window.__app.App.years.length===1")
     left=pg.evaluate("(async()=>{const r=await navigator.storage.getDirectory(); const o=[]; for await(const [n] of r.entries()) o.push(n); const d=await r.getDirectoryHandle('_deleted'); for await(const [n] of d.entries()) o.push('_deleted/'+n); return o.sort();})()")
-    check('History delete: FY2026 removed from the folder, copy kept in _deleted: '+str(left),'FY2026' not in left and 'FY2025' in left and any(n.startswith('_deleted/FY2026_') for n in left))
+    check('History delete: only the ticked records (FY2026, FY2025 Mar) removed, copies kept in _deleted: '+str(left),'FY2026' not in left and 'FY2025-M03' not in left and 'FY2025' in left and any(n.startswith('_deleted/FY2026_') for n in left) and any(n.startswith('_deleted/FY2025-M03_') for n in left))
     check('after deleting the open year the remaining year is opened',pg.evaluate("window.__app.App.year")==2025 and pg.locator('#main table tbody tr').filter(has_text='FY2026').count()==0)
     pg.click('#tab-inputs'); pg.click('#btnFinal'); pg.click('#modalOk'); pg.wait_for_timeout(300)
     pg.click('#tab-history'); check('final year cannot be ticked for deletion',pg.locator('.hsel[data-y="2025"]').is_disabled()); pg.click('#tab-inputs')

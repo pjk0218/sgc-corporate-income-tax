@@ -193,7 +193,7 @@ details table{margin:6px 0 4px;background:#fcfdfe}
     <div class="sub" id="hsub">Year-end tax provision: Corporate Income Tax &amp; Deferred Tax (amounts in SAR)</div>
   </div>
   <div class="hbtns">
-    <label for="yearSel" class="sub">Fiscal year</label>
+    <label for="yearSel" class="sub">Period</label>
     <select id="yearSel" title="Open a saved fiscal year or start a new one"></select>
     <span class="sub" id="storeInfo"></span>
     <button id="btnFolder" title="Pick the team's shared network folder so everyone sees the same data"></button>
@@ -309,7 +309,7 @@ function parseTB(rows){
   }
   if(!accts.length) throw new Error('Trial balance: no account rows were found below the header row.');
   const ym=/(\d{2})\/(\d{2})\/(\d{4})\s*to\s*(\d{2})\/(\d{2})\/(\d{4})/.exec(period);
-  return {company,period,year:ym?+ym[6]:null,accts,grand,profit};
+  return {company,period,year:ym?+ym[6]:null,endMonth:ym?+ym[5]:null,accts,grand,profit};
 }
 function parseProv(rows){
   const h=findCell(rows,/^Opening Balance$/i); const hr=rows[h.r];
@@ -505,7 +505,7 @@ function buildNotices(st,R,prev){
     if(R.cit.taxable<0) add('warn','Taxable profit is negative (tax loss). The app shows a negative tax amount; loss carry-forward is not calculated.','Treat the income tax for the year as nil and review the loss carry-forward separately.','cit');
   }
   if((st.manual||[]).length) add('info',st.manual.length+' manual adjustment'+(st.manual.length>1?'s are':' is')+' applied: '+st.manual.map(m=>(MAN_TARGETS[m.target]||m.target)+' '+fmt(m.amt)+' ('+m.desc+')').join('; ')+'.','They are shown as separate lines in the computation. Review them under "Manual adjustments" on the Inputs tab.','inputs');
-  if(prev){ const py=(App.year-1);
+  if(prev){ const py=kY(App.year)-1;
     if(prev.ppe&&R.ppe){ const d=R.ppe.g.map((g,i)=>({g,p:prev.ppe.g[i]})).filter(x=>x.p&&Math.abs(x.g.open-x.p.cf)>0.5);
       if(d.length) add('warn','PPE opening balance differs from the balance carried forward in FY'+py+' saved in this app: '+d.map(x=>x.g.name.slice(0,40)+' – opening '+fmt(x.g.open)+' vs FY'+py+' carried forward '+fmt(x.p.cf)).join('; ')+'.','Check the "Ending Balance as per prior year" row of the PPE sheet, or confirm that the FY'+py+' figures were revised.','data'); }
     if(prev.dt&&st.keyins.priorDT!==''&&st.keyins.priorDT!=null&&Math.abs(st.keyins.priorDT-prev.dt.net)>0.5) add('info','Key-in "Deferred tax of prior year" ('+fmt(st.keyins.priorDT)+') differs from the FY'+py+' net deferred tax position saved in this app ('+fmt(prev.dt.net)+').','No action needed if the key-in agrees with the audited financial statements.','inputs');
@@ -537,10 +537,15 @@ const te=new TextEncoder(), tdec=new TextDecoder();
 const blank=()=>({tb:null,prov:null,ppe:null,guar:null,guarNA:false,final:false,savedAt:null,manual:[],src:{},keyins:{fsFA:'',priorDT:'',taxRate:0.2,share:1},map:JSON.parse(JSON.stringify(DEFAULT_MAP))});
 const App={store:localStore,pending:null,connectMsg:'',year:null,years:[],hist:{},loadedAt:null,conflict:false,savedMsg:''};
 let st=blank(), tab='inputs', dataTab='tb', undoSnap=null, tbFilter='', tbUsedOnly=false, mapOpen=false;
-const yearDir=y=>'FY'+y;
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const mk=(y,m)=>m?Math.round((y+m/100)*100)/100:y, kY=k=>Math.floor(k), kM=k=>Math.round((k-Math.floor(k))*100);
+const lab=k=>k==null?'':'FY'+kY(k)+(kM(k)?' '+MONTHS[kM(k)-1]:'');
+const kCmp=(a,b)=>kY(b)-kY(a)||(kM(a)===0?(kM(b)===0?0:-1):kM(b)===0?1:kM(b)-kM(a));   // newest year first; within a year: year-end, then latest month
+const periodEnd=k=>{ const y=kY(k), m=kM(k)||12; return new Date(y,m,0).getDate()+' '+MONTHS_LONG[m-1]+' '+y; };
+const yearDir=k=>'FY'+kY(k)+(kM(k)?'-M'+String(kM(k)).padStart(2,'0'):'');
 function normalize(s){ const b=blank(); const o=Object.assign(b,s); o.keyins=Object.assign(blank().keyins,s.keyins||{}); delete o.keyins.guarRound; o.map=Object.assign(JSON.parse(JSON.stringify(DEFAULT_MAP)),s.map||{}); o.src=s.src||{}; o.manual=Array.isArray(s.manual)?s.manual:[]; return o; }
 async function readState(y){ const u=await App.store.read(yearDir(y)+'/data.json'); if(!u) return null; try{ const j=JSON.parse(tdec.decode(u)); if(j.app!=='sgc-cit'||!j.state) return null; return normalize(j.state); }catch(e){ return null; } }
-async function loadAll(){ const names=await App.store.list(''); App.years=names.map(n=>/^FY(\d{4})$/.exec(n)).filter(Boolean).map(m=>+m[1]).sort((a,b)=>b-a); App.hist={}; for(const y of App.years){ const s=await readState(y); if(s) App.hist[y]=s; } App.years=App.years.filter(y=>App.hist[y]); }
+async function loadAll(){ const names=await App.store.list(''); App.years=names.map(n=>/^FY(\d{4})(?:-M(\d{2}))?$/.exec(n)).filter(Boolean).map(m=>mk(+m[1],m[2]?+m[2]:0)).sort(kCmp); App.hist={}; for(const y of App.years){ const s=await readState(y); if(s) App.hist[y]=s; } App.years=App.years.filter(y=>App.hist[y]); }
 async function openYear(y){ const s=await readState(y); App.year=y; st=s||blank(); App.loadedAt=st.savedAt||null; App.conflict=false; undoSnap=null; side=null; if(s) App.hist[y]=s; }
 /* Delete fiscal years from History. A copy (data + uploaded Excel files) is first put in the "_deleted" folder, so a mistake can be repaired by hand. */
 const histSel=new Set();
@@ -550,10 +555,10 @@ async function deleteYears(ys){
       const d=await App.store.read(dir+'/data.json'); if(d) await App.store.write(bin+'/data.json',d);
       for(const f of await App.store.list(dir+'/source')){ const u=await App.store.read(dir+'/source/'+f); if(u) await App.store.write(bin+'/source/'+f,u); }
       await App.store.remove(dir); delete App.hist[y]; App.years=App.years.filter(v=>v!==y); histSel.delete(y); done.push(y);
-    }catch(e){ failed.push('FY'+y+' ('+(e&&e.message||e)+')'); } }
+    }catch(e){ failed.push(''+lab(y)+' ('+(e&&e.message||e)+')'); } }
   if(done.includes(App.year)){ App.year=null; st=blank(); side=null; undoSnap=null; if(App.years.length) await openYear(App.years[0]); }
   render();
-  toast((done.length?'Deleted '+done.map(y=>'FY'+y).join(', ')+'. A copy was kept in the "_deleted" folder'+(App.store.kind==='folder'?' of the shared folder':'')+'.':'')+(failed.length?' Could not delete: '+failed.join('; ')+'.':''));
+  toast((done.length?'Deleted '+done.map(y=>''+lab(y)).join(', ')+'. A copy was kept in the "_deleted" folder'+(App.store.kind==='folder'?' of the shared folder':'')+'.':'')+(failed.length?' Could not delete: '+failed.join('; ')+'.':''));
 }
 let saveQ=Promise.resolve();
 function save(){ if(App.year==null) return saveQ; const y=App.year, snap=JSON.stringify(st); App.hist[y]=JSON.parse(snap);
@@ -564,7 +569,7 @@ async function doSave(y,snap){
   if(cur&&App.year===y&&(cur.savedAt||null)!==App.loadedAt){ App.conflict=true; render(); return; }
   const s=JSON.parse(snap); s.savedAt=new Date().toISOString();
   await App.store.write(yearDir(y)+'/data.json',te.encode(JSON.stringify({app:'sgc-cit',version:2,state:s},null,1)));
-  App.hist[y]=s; if(!App.years.includes(y)){ App.years.push(y); App.years.sort((a,b)=>b-a); }
+  App.hist[y]=s; if(!App.years.includes(y)){ App.years.push(y); App.years.sort(kCmp); }
   if(App.year===y){ st.savedAt=s.savedAt; App.loadedAt=s.savedAt; }
   App.savedMsg='Saved '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); renderHeader();
 }
@@ -575,8 +580,8 @@ const pct=v=>v==null?'–':(Math.round(v*1e6)/1e4)+'%';
 const when=iso=>iso?new Date(iso).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}):'–';
 function xlDate(v){ if(typeof v!=='number') return esc(S(v)); const d=new Date(Math.round((v-25569)*864e5)); return d.toISOString().slice(0,10); }
 function parseNum(s){ s=String(s).trim(); if(s==='') return ''; let neg=false; if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);} s=s.replace(/,/g,'').replace(/\s/g,''); let p=false; if(/%$/.test(s)){p=true;s=s.slice(0,-1);} if(s===''||isNaN(Number(s))) return NaN; let v=Number(s); if(p) v/=100; return neg?-v:v; }
-const fy=()=>App.year;
-const prevResult=()=>{ const p=App.year!=null?App.hist[App.year-1]:null; return p?compute(p):null; };
+const fy=()=>App.year==null?null:kY(App.year);
+const prevResult=()=>{ const p=App.year!=null?App.hist[kY(App.year)-1]:null; return p?compute(p):null; };
 const KIND_LABEL={tb:'Trial Balance',prov:'Provision Movement',ppe:'PPE – Depreciation',guar:'Normal Guarantee'};
 
 function toast(msg,undo){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; document.getElementById('toastUndo').style.display=undo?'':'none'; t.style.display='flex'; clearTimeout(toast.h); toast.h=setTimeout(()=>{t.style.display='none'; },undo?9000:6000); }
@@ -608,7 +613,7 @@ async function connectFolder(handle){
 
 async function handleFiles(fileList){
   if(App.year==null){ toast('Choose the fiscal year first, then upload the files.'); return; }
-  if(st.final){ toast('FY'+App.year+' is marked as final. Unlock it on the Inputs tab before uploading.'); return; }
+  if(st.final){ toast(''+lab(App.year)+' is marked as final. Unlock it on the Inputs tab before uploading.'); return; }
   const msgs=[]; let changed=false; const before=JSON.stringify(st);
   for(const f of fileList){
     if(/\.xls$/i.test(f.name)){ msgs.push(f.name+': old .xls format is not supported. Open it in Excel and "Save As" .xlsx, then upload again.'); continue; }
@@ -617,7 +622,8 @@ async function handleFiles(fileList){
     let found=0;
     for(const sh of sheets){ const kind=detectKind(sh.rows); if(!kind) continue;
       try{ const parsed=PARSERS[kind](sh.rows);
-        if(kind==='tb'&&parsed.year&&parsed.year!==App.year){ msgs.push('The trial balance in "'+f.name+'" is for '+parsed.year+', but you are working on fiscal year '+App.year+'. It was NOT loaded. Choose fiscal year '+parsed.year+' in the top bar (or start it as a new year) and upload again.'); found++; continue; }
+        if(kind==='tb'&&parsed.year){ const wantM=kM(App.year)||12, tbKey=mk(parsed.year,parsed.endMonth&&parsed.endMonth!==12?parsed.endMonth:0);
+          if(parsed.year!==kY(App.year)||(parsed.endMonth&&parsed.endMonth!==wantM)){ msgs.push('The trial balance in "'+f.name+'" covers '+(parsed.period||parsed.year)+', but the open record is '+lab(App.year)+' ('+(kM(App.year)?'January to '+MONTHS_LONG[wantM-1]:'full year')+' '+kY(App.year)+'). It was NOT loaded. Open or start '+lab(tbKey)+(parsed.endMonth===12?' (year-end) or FY'+parsed.year+' Dec':'')+' and upload it there.'); found++; continue; } }
         const replaced=!!st[kind]; st[kind]=parsed; st.src[kind]={file:f.name,sheet:sh.name,at:new Date().toISOString()}; found++; changed=true;
         msgs.push((replaced?'Replaced ':'Loaded ')+KIND_LABEL[kind]+' from sheet "'+sh.name+'".'); }
       catch(e){ msgs.push(f.name+' / sheet "'+sh.name+'": '+e.message); } }
@@ -643,7 +649,7 @@ function checklist(R){
 function renderHeader(){
   document.getElementById('hsub').textContent=(st.tb&&st.tb.company?st.tb.company+' · ':'')+'Corporate Income Tax & Deferred Tax (amounts in SAR)';
   const sel=document.getElementById('yearSel'); const ys=[...App.years]; if(App.year!=null&&!ys.includes(App.year)) ys.unshift(App.year);
-  sel.innerHTML=(App.year==null?'<option value="" selected>– choose –</option>':'')+ys.map(y=>'<option value="'+y+'"'+(y===App.year?' selected':'')+'>FY'+y+((y===App.year?st:App.hist[y]||{}).final?' · final':'')+'</option>').join('')+'<option value="new">＋ New fiscal year…</option>';
+  sel.innerHTML=(App.year==null?'<option value="" selected>– choose –</option>':'')+ys.map(y=>'<option value="'+y+'"'+(y===App.year?' selected':'')+'>'+lab(y)+((y===App.year?st:App.hist[y]||{}).final?' · final':'')+'</option>').join('')+'<option value="new">＋ New period…</option>';
   document.getElementById('storeInfo').innerHTML=(App.store.kind==='folder'?'Shared folder: <b>'+esc(App.store.name)+'</b>':'<b>This browser only</b> (not shared)')+(App.savedMsg?' · '+esc(App.savedMsg):'');
   const b=document.getElementById('btnFolder'); b.style.display=window.showDirectoryPicker?'':'none'; b.textContent=App.pending?'Reconnect shared folder':App.store.kind==='folder'?'Change folder':'Connect shared folder';
 }
@@ -660,9 +666,9 @@ function render(){
   const keep=document.activeElement&&document.activeElement.id, selS=keep?document.activeElement.selectionStart:null;
   const noYear='<div class="card blocked"><h2>No fiscal year is open</h2><div class="hint" style="margin:8px 0 14px">Choose a fiscal year in the top bar, or start a new one on the Inputs tab.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>';
   let banner='';
-  if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for FY'+App.year+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
+  if(App.conflict) banner+='<div class="notice err"><b class="lv">Not saved</b><div>A colleague saved newer data for '+lab(App.year)+' while you were working, so your last change was not saved (to avoid overwriting theirs).<div class="fix"><button class="primary" id="btnReload">Load the latest data</button></div></div></div>';
   if(App.connectMsg) banner+='<div class="notice err"><b class="lv">Folder</b><div>'+esc(App.connectMsg)+'</div></div>';
-  if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>FY'+App.year+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
+  if(st.final&&App.year!=null) banner+='<div class="notice info noprint"><b class="lv">Final</b><div>'+lab(App.year)+' is marked as final and is read-only. <button class="link" id="btnUnlock">Unlock to edit</button></div></div>';
   document.getElementById('main').innerHTML=banner+sec('inputs',App.year==null?vStart():vInputs(R,cl,done))+sec('data',App.year==null?noYear:vData(R))+sec('cit',App.year==null?noYear:vCIT(R))+sec('dt',App.year==null?noYear:vDT(R))+sec('notices',App.year==null?noYear:vNotices(notices))+sec('history',vHistory())+sec('help',vHelp());
   paintSide();
   if(keep){ const el=document.getElementById(keep); if(el&&el.tagName==='INPUT'){ el.focus(); try{ if(selS!=null) el.setSelectionRange(selS,selS); }catch(e){} } }
@@ -674,9 +680,11 @@ const folderHelp=()=>App.store.kind==='folder'?'':(window.showDirectoryPicker
   :'<div class="notice warn noprint"><b class="lv">Sharing</b><div>This browser cannot connect a shared folder, so data is saved in this browser only. Use Chrome or Edge on a computer to share data with the team.</div></div>');
 
 function vStart(){
-  return folderHelp()+'<div class="card"><h2>Which fiscal year are you preparing?</h2><div class="hint">Each fiscal year is saved separately, so earlier years stay available under History.</div>'
-   +'<div class="keyin" style="margin-top:12px"><label for="newYear">Fiscal year</label><input type="text" id="newYear" inputmode="numeric" maxlength="4" placeholder="e.g. 2025" style="width:120px"><button class="primary" id="btnStartYear">Start this year</button><span class="fielderr" id="e-newYear"></span></div>'
-   +(App.years.length?'<div class="hint" style="margin-top:12px">Already saved: '+App.years.map(y=>'<button class="link" data-open="'+y+'">FY'+y+'</button>').join(' · ')+'</div>':'')+'</div>';
+  return folderHelp()+'<div class="card"><h2>Which period are you preparing?</h2><div class="hint">Each record is saved separately and listed under History: the year-end closing of a fiscal year, or a monthly run (January up to the chosen month) for testing or interim figures. Monthly records never overwrite each other or the year-end record.</div>'
+   +'<div class="keyin" style="margin-top:12px;align-items:flex-end"><label class="hint" for="newYear">Fiscal year<br><input type="text" id="newYear" inputmode="numeric" maxlength="4" placeholder="e.g. 2026" style="width:120px"></label>'
+   +'<label class="hint" for="newPeriod">Period<br><select class="in" id="newPeriod"><option value="0">Full year – year-end closing</option>'+MONTHS_LONG.map((m,i)=>'<option value="'+(i+1)+'">January to '+m+' (monthly)</option>').join('')+'</select></label>'
+   +'<button class="primary" id="btnStartYear">Start</button><span class="fielderr" id="e-newYear"></span></div>'
+   +(App.years.length?'<div class="hint" style="margin-top:12px">Already saved: '+App.years.map(y=>'<button class="link" data-open="'+y+'">'+lab(y)+'</button>').join(' · ')+'</div>':'')+'</div>';
 }
 function vInputs(R,cl,done){
   const k=st.keyins, lock=!!st.final, dis=lock?' disabled':'';
@@ -693,16 +701,16 @@ function vInputs(R,cl,done){
       if(c.id==='guar') body+='<div style="margin-top:6px"><label><input type="checkbox" id="guarNA" '+(st.guarNA?'checked':'')+dis+'> Not applicable this year (guarantee fee rate equals the market rate – add-back is 0)</label></div>';
     } else if(c.id==='fsFA') body+=keyField('fsFA',k.fsFA,'e.g. 3,112,612.39');
     else if(c.id==='priorDT'){ body+=keyField('priorDT',k.priorDT,'e.g. 10,930.00');
-      if(sug!=null&&!lock&&k.priorDT!==sug) body+='<div class="hint noprint" style="margin-top:4px">FY'+(App.year-1)+' saved in this app shows a net deferred tax position of '+fmt(sug)+'. <button class="link" id="btnUsePrior" data-v="'+sug+'">Use this amount</button> (check it against the audited FS first)</div>'; }
+      if(sug!=null&&!lock&&k.priorDT!==sug) body+='<div class="hint noprint" style="margin-top:4px">'+lab(kY(App.year)-1)+' saved in this app shows a net deferred tax position of '+fmt(sug)+'. <button class="link" id="btnUsePrior" data-v="'+sug+'">Use this amount</button> (check it against the audited FS first)</div>'; }
     body+='</div>';
     return '<div class="check"><div class="tick '+(c.done?(c.na?'na':'done'):'')+'" role="img" aria-label="'+(c.done?(c.na?'Not applicable':'Provided'):'Not provided')+'">'+(c.done?(c.na?'–':'✓'):'')+'</div>'+body+'<div class="noprint">'+act+'</div></div>';
   };
   const mapRows=Object.entries(st.map).map(([key,m])=>{ const found=st.tb?m.codes.map(c=>{const a=st.tb.accts.find(x=>x.code===c); return a?esc(a.name):'<span class="neg">'+esc(c)+' not found</span>';}).join('; '):'–';
     return '<tr><td>'+esc(m.label)+'</td><td class="hint">'+esc(m.use)+'</td><td><input type="text" class="wide" data-map="'+key+'" id="m-'+key+'"'+dis+' value="'+esc(m.codes.join(', '))+'" aria-label="Account codes for '+esc(m.label)+'"></td><td>'+found+'</td></tr>'; }).join('');
   const allDone=done===cl.length;
-  return folderHelp()+'<div class="card"><div class="statusbar"><div><h2>FY'+App.year+' · Inputs checklist</h2><div class="hint">'+(allDone?'All inputs are provided. Review the results in tabs 3 and 4.':'Provide each item below. A green tick appears as each one is received.')+'</div></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="'+cl.length+'" aria-valuenow="'+done+'" aria-label="Inputs provided"><div style="width:'+(done/cl.length*100)+'%"></div></div><b>'+done+' of '+cl.length+' provided</b></div>'
+  return folderHelp()+'<div class="card"><div class="statusbar"><div><h2>'+lab(App.year)+' · Inputs checklist</h2><div class="hint">'+(allDone?'All inputs are provided. Review the results in tabs 3 and 4.':'Provide each item below. A green tick appears as each one is received.')+'</div></div><div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="'+cl.length+'" aria-valuenow="'+done+'" aria-label="Inputs provided"><div style="width:'+(done/cl.length*100)+'%"></div></div><b>'+done+' of '+cl.length+' provided</b></div>'
    +(lock?'':'<div class="drop noprint" id="drop"><b>Drop Excel file(s) here</b> or <button class="primary" id="btnBrowse">Choose files…</button><div class="hint" style="margin-top:6px">One workbook containing all sheets, or separate .xlsx files – each sheet is recognized automatically by its layout. Uploading again replaces the earlier data. Every change is saved automatically.</div><input type="file" id="fileIn" accept=".xlsx,.xlsm" multiple hidden></div>')
-   +'<div class="noprint" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+(lock?'':(allDone?'<button class="primary" id="btnFinal" title="Lock this year so it cannot be changed by accident">Mark FY'+App.year+' as final</button>':'')+'<button class="danger" id="btnReset">Clear this year\'s inputs</button>')+'</div></div>'
+   +'<div class="noprint" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">'+(lock?'':(allDone?'<button class="primary" id="btnFinal" title="Lock this year so it cannot be changed by accident">Mark '+lab(App.year)+' as final</button>':'')+'<button class="danger" id="btnReset">Clear this year\'s inputs</button>')+'</div></div>'
    +'<div class="card">'+cl.map(row).join('')+'</div>'
    +'<div class="card"><h2>Manual adjustments <span class="tag opt">Optional</span></h2><div class="hint">Use this only when the provided data carries a manual adjustment (for example a rounding adjustment inside an Excel total). Each one is added to the chosen line and shown as its own line in the computation. A positive amount increases the line; a negative amount decreases it.</div>'
    +((st.manual||[]).length?'<table style="margin-top:8px"><thead><tr><th>Line</th><th>Reason</th><th class="n">Amount (SAR)</th><th></th></tr></thead><tbody>'+st.manual.map((m,i)=>'<tr><td>'+esc(MAN_TARGETS[m.target]||m.target)+'</td><td>'+esc(m.desc)+'</td>'+cellN(m.amt)+'<td class="noprint">'+(lock?'':'<button class="danger" data-rmman="'+i+'">Remove</button>')+'</td></tr>').join('')+'</tbody></table>':'<div class="hint" style="margin-top:8px"><b>None.</b> The computation uses the uploaded data exactly as calculated.</div>')
@@ -862,7 +870,7 @@ const keyIn=id=>({kind:'input',field:id});
 
 function vCIT(R){
   if(!R.citReady) return blockedView('Corporate Income Tax',R.missing);
-  const T=R.tb,C=R.cit,m=st.map; const y=' FY'+fy();
+  const T=R.tb,C=R.cit,m=st.map; const y=' '+lab(App.year)+(kM(App.year)?' (January to '+MONTHS_LONG[kM(App.year)-1]+')':'');
   const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
   const ADJ_SRC={A1:st.guarNA?null:{kind:'guar',cells:['guar:T:dis']},A2:tbSrc('entertainment','ytdDr'),A3:tbSrc('taxDues','ytdDr'),A4:{kind:'prov',cells:['prov:T:prov']},A5:{kind:'prov',cells:['prov:T:util']},A6:{kind:'ppe',cells:['ppe:depDiff','ppe:gl','ppe:depZ','ppe:dep:T']}};
   const adjRows=C.adj.map(a=>{
@@ -901,7 +909,7 @@ function vCIT(R){
 
 function vDT(R){
   if(!R.dtReady) return blockedView('Deferred Tax',R.dtMissing);
-  const D=R.dt, P=R.ppe, y=fy(), d=y?'31 December '+y:'year end', pd=y?'31 December '+(y-1):'prior year end';
+  const D=R.dt, P=R.ppe, y=fy(), d=y?periodEnd(App.year):'year end', pd=y?'31 December '+(y-1):'prior year end';
   const sect=l=>'<tr class="sect"><td colspan="4">'+l+'</td></tr>';
   const mFAids=D.mFA.map((x,j)=>'N1m.'+j), mPvIds=D.mPv.map((x,j)=>'B1.m'+j);
   const kpi=(id,l,v)=>'<div class="kpi" data-hl="'+id+'" tabindex="0"><div class="l">'+l+'</div><div class="v">'+fmt(v)+'</div></div>';
@@ -949,17 +957,17 @@ function vNotices(ns){
 
 function vHistory(){
   const rows=App.years.map(y=>{ const s=y===App.year?st:App.hist[y]; if(!s) return ''; const R=compute(s); const v=x=>x==null?'<td class="n">–</td>':cellN(x);
-    return '<tr class="'+(y===App.year?'used':'')+'"><td class="noprint"><input type="checkbox" class="hsel" data-y="'+y+'" aria-label="Select FY'+y+'"'+(histSel.has(y)&&!s.final?' checked':'')+(s.final?' disabled title="Final years cannot be deleted. Unlock the year first."':'')+'></td><td><b>FY'+y+'</b>'+(y===App.year?' <span class="tag use">open now</span>':'')+'</td><td>'+(s.final?'<span class="tag use">Final</span>':(R.citReady&&R.dtReady?'In progress – all inputs provided':'In progress – inputs missing'))+'</td>'
-      +v(R.tb?R.tb.netProfit:null)+v(R.cit?R.cit.taxable:null)+v(R.cit?R.cit.tax:null)+v(R.cit?R.cit.due:null)+v(R.dt?R.dt.net:null)+v(R.dt?R.dt.movement:null)+'<td>'+esc(when(s.savedAt))+'</td><td class="noprint">'+(y===App.year?'':'<button data-open="'+y+'">Open</button>')+'</td></tr>'; }).join('');
-  return '<div class="card"><h2>History – all fiscal years</h2><div class="hint" style="margin-bottom:10px">'+(App.store.kind==='folder'?'Saved in the shared folder "'+esc(App.store.name)+'" – everyone who connects the same folder sees the same years. Each year has its own folder (FY2025, FY2026, …) with the data and a copy of the uploaded Excel files in "source".':'Saved in this browser only. Connect the shared folder (top right) so the whole team can see these years.')+'</div>'
-   +(rows?'<div class="scroll" style="max-height:none"><table><thead><tr><th class="noprint" style="width:30px"><span class="hint" title="Select years to delete">Select</span></th><th>Fiscal year</th><th>Status</th><th class="n">Net profit before tax</th><th class="n">Taxable profit</th><th class="n">Income tax</th><th class="n">Due to ZATCA</th><th class="n">Net deferred tax</th><th class="n">Deferred tax movement</th><th>Last saved</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="blocked"><b>No fiscal year has been saved yet.</b><div class="hint" style="margin:6px 0 12px">Start a year on the Inputs tab; it will appear here.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>')
-   +'<div class="noprint" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="btnNewYear">＋ New fiscal year</button>'+(rows?'<button class="danger" id="btnDelYears" disabled title="Tick the years to delete first">Delete selected</button>':'')+(App.year!=null?'<button id="btnExport" title="Download a backup copy of the open year">Download FY'+App.year+' data file</button><button id="btnImport" title="Replace the open year with a data file downloaded from this app">Import data file into FY'+App.year+'</button>':'')+'<input type="file" id="importFile" accept=".json" hidden></div></div>';
+    return '<tr class="'+(y===App.year?'used':'')+'"><td class="noprint"><input type="checkbox" class="hsel" data-y="'+y+'" aria-label="Select '+lab(y)+'"'+(histSel.has(y)&&!s.final?' checked':'')+(s.final?' disabled title="Final years cannot be deleted. Unlock the year first."':'')+'></td><td style="white-space:nowrap"><b>'+lab(y)+'</b>'+(y===App.year?' <span class="tag use">open now</span>':'')+'</td><td>'+(s.final?'<span class="tag use">Final</span>':(R.citReady&&R.dtReady?'In progress – all inputs provided':'In progress – inputs missing'))+'</td>'
+      +v(R.tb?R.tb.netProfit:null)+v(R.cit?R.cit.taxable:null)+v(R.cit?R.cit.tax:null)+v(R.cit?R.cit.due:null)+v(R.dt?R.dt.net:null)+v(R.dt?R.dt.movement:null)+'<td style="white-space:nowrap">'+esc(when(s.savedAt))+'</td><td class="noprint">'+(y===App.year?'':'<button data-open="'+y+'">Open</button>')+'</td></tr>'; }).join('');
+  return '<div class="card"><h2>History – all saved periods</h2><div class="hint" style="margin-bottom:10px">'+(App.store.kind==='folder'?'Saved in the shared folder "'+esc(App.store.name)+'" – everyone who connects the same folder sees the same years. Each record has its own folder (FY2025 for the year-end closing, FY2026-M03 for January to March 2026, …) with the data and a copy of the uploaded Excel files in "source".':'Saved in this browser only. Connect the shared folder (top right) so the whole team can see these years.')+'</div>'
+   +(rows?'<div class="scroll" style="max-height:none"><table><thead><tr><th class="noprint" style="width:30px"><span class="hint" title="Select years to delete">Select</span></th><th>Period</th><th>Status</th><th class="n">Net profit before tax</th><th class="n">Taxable profit</th><th class="n">Income tax</th><th class="n">Due to ZATCA</th><th class="n">Net deferred tax</th><th class="n">Deferred tax movement</th><th>Last saved</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="blocked"><b>No fiscal year has been saved yet.</b><div class="hint" style="margin:6px 0 12px">Start a year on the Inputs tab; it will appear here.</div><button class="primary" data-tab="inputs">Go to Inputs</button></div>')
+   +'<div class="noprint" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button id="btnNewYear">＋ New period</button>'+(rows?'<button class="danger" id="btnDelYears" disabled title="Tick the years to delete first">Delete selected</button>':'')+(App.year!=null?'<button id="btnExport" title="Download a backup copy of the open year">Download '+lab(App.year)+' data file</button><button id="btnImport" title="Replace the open year with a data file downloaded from this app">Import data file into '+lab(App.year)+'</button>':'')+'<input type="file" id="importFile" accept=".json" hidden></div></div>';
 }
 
 function vHelp(){
-  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Fiscal year</b> (top bar) – open a saved year or start a new one. Each year is saved separately.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a calculated amount to pin its calculation, laid out line by line down to the result, in a window you can drag around; click anywhere else (or press Esc) to close it. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year. To remove test data, tick the years and click <b>Delete selected</b> (final years must be unlocked first; a copy is kept in the "_deleted" folder).</li></ol>'
+  return '<div class="card"><h2>How to use</h2><ol><li><b>Connect shared folder</b> (top right, once per computer) – everyone on the team picks the same network folder, so all current and past years are shared.</li><li><b>Period</b> (top bar) – open a saved record or start a new one: the year-end closing of a fiscal year, or a monthly run (January to a chosen month). Every record is saved separately; monthly runs do not overwrite each other.</li><li><b>Inputs</b> – drop the year-end Excel file(s). Each sheet is recognized by its layout and ticked off in the checklist. Type the two key-in amounts. Every change is saved automatically.</li><li><b>Source data</b> – check the uploaded data as tables.</li><li><b>Corporate Income Tax</b> and <b>Deferred Tax</b> – read the step-by-step computation. Every line shows its source and formula. Point at a line (or a summary box) to highlight, in colour, the lines it is calculated from, with the formula and amounts shown in the bar under the tabs (it never covers the table) – like F2 and the formula bar in Excel. Click a calculated amount to pin its calculation, laid out line by line down to the result, in a window you can drag around; click anywhere else (or press Esc) to close it. Click a line that comes from source data ("View source") to open that table beside the report, with the source cells marked in yellow; click a key-in line to jump to its field on the Inputs tab. In the source tables, amounts with a dotted underline are calculated – point at one to see its formula and the cells it uses.</li><li><b>Notices</b> – resolve anything marked Missing or Review.</li><li><b>Mark as final</b> when the year is done (it becomes read-only), and use <b>Print / PDF</b> for the working paper.</li><li><b>History</b> – see and open any earlier year. To remove test data, tick the years and click <b>Delete selected</b> (final years must be unlocked first; a copy is kept in the "_deleted" folder).</li></ol>'
    +'<h3>Expected Excel layout</h3><table><thead><tr><th>Input</th><th>Recognized by</th><th>What is read</th></tr></thead><tbody>'
-   +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open fiscal year.</td></tr>'
+   +'<tr><td>Trial Balance</td><td>Header row with "Particulars", "Code", "Dr (YTD)", "Cr (YTD)"</td><td>All account rows down to "Grand Total"; "Profit for the period" for the cross-check. Rows below Grand Total are ignored. The date range above the header must match the open period (year and last month).</td></tr>'
    +'<tr><td>1. Provision Movement</td><td>Header row with "Opening Balance" … "Ending Balance"</td><td>Each provision row down to "Total".</td></tr>'
    +'<tr><td>2. PPE – Depreciation</td><td>Header row "Land … Totals" and row "Depreciation Rate"</td><td>Prior-year balance, current/prior additions, current/prior considerations, rates, "Depreciation + Amortization as per GL", R&amp;M expense per group. All other rows are recalculated.</td></tr>'
    +'<tr><td>3. Normal Guarantee</td><td>Header "Principal Amount in SAR"</td><td>Project, bond, principal, dates, days, fee rate and the market rate under "Market Value". Fee, market value and disallowed expense are recalculated; totals are exact sums. If the source carries a manual adjustment, key it in under "Manual adjustments" on the Inputs tab.</td></tr></tbody></table>'
@@ -995,32 +1003,33 @@ function bind(){
       snapshot(); (st.manual||(st.manual=[])).push({target:$('manTarget').value,desc:d,amt:v}); save(); render(); toast('Manual adjustment added.',true); };
     $('btnAddMan').onclick=addMan; $('manAmt').onkeydown=e=>{ if(e.key==='Enter') addMan(); }; }
   document.querySelectorAll('[data-rmman]').forEach(b=>b.onclick=()=>{ snapshot(); st.manual.splice(+b.dataset.rmman,1); save(); render(); toast('Manual adjustment removed.',true); });
-  if($('btnUsePrior')) $('btnUsePrior').onclick=()=>{ snapshot(); st.keyins.priorDT=+$('btnUsePrior').dataset.v; save(); render(); toast('Prior-year deferred tax filled from FY'+(App.year-1)+'.',true); };
+  if($('btnUsePrior')) $('btnUsePrior').onclick=()=>{ snapshot(); st.keyins.priorDT=+$('btnUsePrior').dataset.v; save(); render(); toast('Prior-year deferred tax filled from '+lab(kY(App.year)-1)+'.',true); };
   const fi=$('fileIn'), dz=$('drop');
   if($('btnBrowse')) $('btnBrowse').onclick=()=>fi.click(); if(fi) fi.onchange=()=>{ if(fi.files.length) handleFiles([...fi.files]); };
   if(dz){ dz.ondragover=e=>{e.preventDefault(); dz.classList.add('over');}; dz.ondragleave=()=>dz.classList.remove('over'); dz.ondrop=e=>{e.preventDefault(); dz.classList.remove('over'); handleFiles([...e.dataTransfer.files]);}; }
   if($('tbFilter')) $('tbFilter').oninput=()=>{tbFilter=$('tbFilter').value; render();};
   if($('tbUsed')) $('tbUsed').onchange=()=>{tbUsedOnly=$('tbUsed').checked; render();};
-  if($('btnStartYear')){ const start=()=>{ const el=$('newYear'), y=+el.value.trim();
-      if(!/^\d{4}$/.test(el.value.trim())||y<2000||y>2100){ el.classList.add('bad'); $('e-newYear').textContent='Enter a 4-digit year, e.g. 2025.'; return; }
-      if(App.years.includes(y)){ toast('FY'+y+' already exists – it has been opened.'); return switchYear(y); }
-      App.year=y; st=blank(); App.loadedAt=null; save(); render(); toast('FY'+y+' started. Upload the files below.'); };
+  if($('btnStartYear')){ const start=()=>{ const el=$('newYear'), yy=+el.value.trim();
+      if(!/^\d{4}$/.test(el.value.trim())||yy<2000||yy>2100){ el.classList.add('bad'); $('e-newYear').textContent='Enter a 4-digit year, e.g. 2026.'; return; }
+      const y=mk(yy,+$('newPeriod').value);
+      if(App.years.includes(y)){ toast(lab(y)+' already exists – it has been opened.'); return switchYear(y); }
+      App.year=y; st=blank(); App.loadedAt=null; save(); render(); toast(lab(y)+' started. Upload the files below.'); };
     $('btnStartYear').onclick=start; $('newYear').onkeydown=e=>{ if(e.key==='Enter') start(); }; }
   if($('btnNewYear')) $('btnNewYear').onclick=newYear;
   if($('btnDelYears')){ const b=$('btnDelYears'), sync=()=>{ const n=[...histSel].filter(y=>App.years.includes(y)&&!(y===App.year?st:App.hist[y]||{}).final).length; b.disabled=!n; b.textContent=n?'Delete selected ('+n+')':'Delete selected'; };
     document.querySelectorAll('.hsel').forEach(c=>c.onchange=()=>{ c.checked?histSel.add(+c.dataset.y):histSel.delete(+c.dataset.y); sync(); }); sync();
     b.onclick=()=>{ const ys=[...histSel].filter(y=>App.years.includes(y)&&!(y===App.year?st:App.hist[y]||{}).final).sort(); if(!ys.length) return;
-      confirmBox('Delete '+ys.map(y=>'FY'+y).join(', ')+'?','The selected year'+(ys.length>1?'s are':' is')+' removed from History for everyone using '+(App.store.kind==='folder'?'this shared folder':'this browser')+'. A copy of the data and uploaded Excel files is kept in the "_deleted" folder.','Delete '+ys.length+' year'+(ys.length>1?'s':''),()=>deleteYears(ys)); }; }
+      confirmBox('Delete '+ys.map(y=>''+lab(y)).join(', ')+'?','The selected year'+(ys.length>1?'s are':' is')+' removed from History for everyone using '+(App.store.kind==='folder'?'this shared folder':'this browser')+'. A copy of the data and uploaded Excel files is kept in the "_deleted" folder.','Delete '+ys.length+' year'+(ys.length>1?'s':''),()=>deleteYears(ys)); }; }
   if($('btnReload')) $('btnReload').onclick=()=>switchYear(App.year);
-  if($('btnFinal')) $('btnFinal').onclick=()=>confirmBox('Mark FY'+App.year+' as final?','The year becomes read-only for everyone. It can be unlocked later if a correction is needed.','Mark as final',()=>{ st.final=true; save(); render(); toast('FY'+App.year+' is now final.'); });
-  if($('btnUnlock')) $('btnUnlock').onclick=()=>confirmBox('Unlock FY'+App.year+'?','The year becomes editable again. Changes are saved for everyone.','Unlock',()=>{ st.final=false; save(); render(); });
-  if($('btnReset')) $('btnReset').onclick=()=>confirmBox('Clear FY'+App.year+' inputs?','This removes all uploaded data and key-in values of FY'+App.year+' for everyone. Other years are not affected. You can undo right after.','Clear inputs',()=>{ snapshot(); st=blank(); save(); render(); toast('FY'+App.year+' inputs were cleared.',true); });
-  if($('btnExport')) $('btnExport').onclick=()=>{ const blob=new Blob([JSON.stringify({app:'sgc-cit',version:2,year:App.year,state:st},null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='SGC_Arabia_CIT_FY'+App.year+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('Data file saved to your Downloads folder.'); };
-  if($('btnImport')) $('btnImport').onclick=()=>{ if(st.final) return toast('FY'+App.year+' is final. Unlock it before importing.'); $('importFile').click(); };
+  if($('btnFinal')) $('btnFinal').onclick=()=>confirmBox('Mark '+lab(App.year)+' as final?','The year becomes read-only for everyone. It can be unlocked later if a correction is needed.','Mark as final',()=>{ st.final=true; save(); render(); toast(''+lab(App.year)+' is now final.'); });
+  if($('btnUnlock')) $('btnUnlock').onclick=()=>confirmBox('Unlock '+lab(App.year)+'?','The year becomes editable again. Changes are saved for everyone.','Unlock',()=>{ st.final=false; save(); render(); });
+  if($('btnReset')) $('btnReset').onclick=()=>confirmBox('Clear '+lab(App.year)+' inputs?','This removes all uploaded data and key-in values of '+lab(App.year)+' for everyone. Other years are not affected. You can undo right after.','Clear inputs',()=>{ snapshot(); st=blank(); save(); render(); toast(''+lab(App.year)+' inputs were cleared.',true); });
+  if($('btnExport')) $('btnExport').onclick=()=>{ const blob=new Blob([JSON.stringify({app:'sgc-cit',version:2,year:App.year,state:st},null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='SGC_Arabia_CIT_'+lab(App.year)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('Data file saved to your Downloads folder.'); };
+  if($('btnImport')) $('btnImport').onclick=()=>{ if(st.final) return toast(''+lab(App.year)+' is final. Unlock it before importing.'); $('importFile').click(); };
   if($('importFile')) $('importFile').onchange=async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
     try{ const j=JSON.parse(await f.text()); if(j.app!=='sgc-cit'||!j.state||!j.state.keyins) throw 0;
-      const fyr=j.year||(j.state.tb&&j.state.tb.year); if(fyr&&fyr!==App.year) return toast('This data file is for FY'+fyr+', but FY'+App.year+' is open. Open or start FY'+fyr+' first, then import.');
-      snapshot(); const keep=st.savedAt; st=normalize(j.state); st.savedAt=keep; save(); render(); toast('Data file imported into FY'+App.year+'.',true); }
+      const fyr=j.year||(j.state.tb&&j.state.tb.year); if(fyr&&fyr!==App.year) return toast('This data file is for '+lab(fyr)+', but '+lab(App.year)+' is open. Open or start '+lab(fyr)+' first, then import.');
+      snapshot(); const keep=st.savedAt; st=normalize(j.state); st.savedAt=keep; save(); render(); toast('Data file imported into '+lab(App.year)+'.',true); }
     catch(x){ toast('This file is not a data file downloaded from this app. Choose a file named like SGC_Arabia_CIT_FY2025.json.'); } };
 }
 /* ---------- Precedent highlighting (like F2 in Excel): report lines (tr[data-id]) and source-table cells ([data-cid]) ---------- */
